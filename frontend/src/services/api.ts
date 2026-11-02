@@ -6,6 +6,8 @@ import type {
   SavedLessonItem,
   STTResponse,
   TTSResponse,
+  CurriculumDocumentSummary,
+  CurriculumUploadResponse,
 } from '../types';
 
 const API_BASE = '/api/v1';
@@ -31,7 +33,8 @@ export async function sendTutorQuery(
   language: string,
   dialect: string,
   conversationId?: string,
-  topic?: string
+  topic?: string,
+  useCurriculumRag = true
 ): Promise<TutorInquiryResponse> {
   const res = await fetch(`${API_BASE}/tutor/query`, {
     method: 'POST',
@@ -42,6 +45,7 @@ export async function sendTutorQuery(
       dialect,
       conversation_id: conversationId,
       topic: topic || 'Computer Science',
+      use_curriculum_rag: useCurriculumRag,
     }),
   });
   if (!res.ok) throw new Error('Failed to generate tutor explanation');
@@ -98,5 +102,40 @@ export async function synthesizeTTS(text: string, language = 'te', speed = 1.0):
     body: JSON.stringify({ text, language, speed }),
   });
   if (!res.ok) throw new Error('Failed to synthesize speech');
+  return res.json();
+}
+
+export async function fetchCurriculumDocuments(): Promise<CurriculumDocumentSummary[]> {
+  const res = await fetch(`${API_BASE}/curriculum/documents`);
+  if (!res.ok) throw new Error('Failed to fetch curriculum documents');
+  return res.json();
+}
+
+export async function uploadCurriculumDocument(
+  file: File,
+  title?: string,
+  subject = 'Computer Science'
+): Promise<CurriculumUploadResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (title) formData.append('title', title);
+  formData.append('subject', subject);
+
+  const res = await fetch(`${API_BASE}/curriculum/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
+    throw new Error(err.detail || 'Failed to upload curriculum document');
+  }
+  return res.json();
+}
+
+export async function deleteCurriculumDocument(documentId: string): Promise<{ status: string; deleted_document_id: string }> {
+  const res = await fetch(`${API_BASE}/curriculum/documents/${documentId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete curriculum document');
   return res.json();
 }

@@ -9,6 +9,23 @@ class CurriculumGroundingSource(BaseModel):
     relevance_score: float
     excerpt: str
 
+class CurriculumDocumentSummary(BaseModel):
+    id: str
+    title: str
+    filename: str
+    file_type: str
+    subject: str
+    file_size_bytes: int
+    page_count: int
+    chunk_count: int
+    created_at: datetime.datetime
+
+class CurriculumUploadResponse(BaseModel):
+    document_id: str
+    title: str
+    chunks_created: int
+    message: str
+
 class ExplanationCards(BaseModel):
     simple_explanation: str
     real_life_analogy: str
@@ -48,6 +65,7 @@ class TutorInquiryRequest(BaseModel):
     language: Optional[str] = "Telugu"
     dialect: Optional[str] = "Andhra & Telangana"
     topic: Optional[str] = "Computer Science"
+    use_curriculum_rag: Optional[bool] = True
 
 class TutorInquiryResponse(BaseModel):
     conversation_id: str
@@ -58,6 +76,7 @@ class TutorInquiryResponse(BaseModel):
     explanation: ExplanationCards
     provider: str = "baseten/muse-spark-open"
     latency_ms: Optional[float] = None
+    has_curriculum_grounding: bool = False
     created_at: datetime.datetime
 
 class STTResponse(BaseModel):

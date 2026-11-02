@@ -34,7 +34,27 @@ export interface TutorInquiryResponse {
   explanation: ExplanationCards;
   provider?: string;
   latency_ms?: number;
+  has_curriculum_grounding?: boolean;
   created_at: string;
+}
+
+export interface CurriculumDocumentSummary {
+  id: string;
+  title: string;
+  filename: string;
+  file_type: string;
+  subject: string;
+  file_size_bytes: number;
+  page_count: number;
+  chunk_count: number;
+  created_at: string;
+}
+
+export interface CurriculumUploadResponse {
+  document_id: string;
+  title: string;
+  chunks_created: number;
+  message: string;
 }
 
 export interface MessageItem {

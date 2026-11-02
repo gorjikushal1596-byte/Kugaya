@@ -27,8 +27,9 @@ class AIReasoningService:
         conversation_id: Optional[str] = None,
         language: str = "Telugu",
         dialect: str = "Andhra & Telangana",
-        topic: str = "Computer Science"
-    ) -> tuple[ExplanationCards, str, str, float]:
+        topic: str = "Computer Science",
+        use_curriculum_rag: bool = True
+    ) -> tuple[ExplanationCards, str, str, float, bool]:
         start_time = time.time()
 
         # 1. Ensure conversation session exists
@@ -49,16 +50,24 @@ class AIReasoningService:
         )
 
         # 3. Retrieve verified curriculum grounding context (RAG)
-        raw_sources = await curriculum_rag_service.retrieve_grounding(query)
-        grounding_sources = [
-            CurriculumGroundingSource(
-                document_title=s.document_title,
-                chapter=s.chapter,
-                page_number=s.page_number,
-                relevance_score=s.relevance_score,
-                excerpt=s.excerpt
-            ) for s in raw_sources
-        ]
+        grounding_sources: List[CurriculumGroundingSource] = []
+        has_curriculum_grounding = False
+
+        if use_curriculum_rag:
+            raw_sources = await curriculum_rag_service.retrieve_grounding(db, query)
+            grounding_sources = [
+                CurriculumGroundingSource(
+                    document_title=s.document_title,
+                    chapter=s.chapter,
+                    page_number=s.page_number,
+                    relevance_score=s.relevance_score,
+                    excerpt=s.excerpt
+                ) for s in raw_sources
+            ]
+            has_curriculum_grounding = any(
+                s.document_title != "AICTE / Standard University Engineering Syllabus"
+                for s in grounding_sources
+            )
 
         # 4. Generate structured 5-card pedagogical breakdown
         explanation = await baseten_client.generate_tutor_response(
@@ -66,7 +75,7 @@ class AIReasoningService:
             language=language,
             dialect=dialect,
             history_context=history_context,
-            curriculum_context=grounding_sources
+            curriculum_context=grounding_sources if grounding_sources else None
         )
 
         latency_ms = round((time.time() - start_time) * 1000, 2)
@@ -81,8 +90,7 @@ class AIReasoningService:
             latency_ms=int(latency_ms)
         )
 
-        provider_tag = f"baseten/{settings.BASETEN_MODEL_ID.split('/')[-1]}"
-        return explanation, conv.id, message_id, latency_ms
+        return explanation, conv.id, message_id, latency_ms, has_curriculum_grounding
 
 reasoning_service = AIReasoningService()
 

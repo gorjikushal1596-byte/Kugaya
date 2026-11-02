@@ -229,3 +229,4 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
     </div>
   );
 };
+

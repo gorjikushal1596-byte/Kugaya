@@ -26,7 +26,7 @@ async def prepare_db():
 @pytest.mark.asyncio
 async def test_scenario_1_binary_search_tenglish():
     async with AsyncSessionLocal() as db:
-        explanation, conv_id, msg_id, latency_ms = await reasoning_service.answer_student_inquiry(
+        explanation, conv_id, msg_id, latency_ms, *_ = await reasoning_service.answer_student_inquiry(
             db=db,
             query="Explain binary search and why array must be sorted",
             conversation_id=None,
@@ -47,7 +47,7 @@ async def test_scenario_1_binary_search_tenglish():
 @pytest.mark.asyncio
 async def test_scenario_2_os_process_hinglish():
     async with AsyncSessionLocal() as db:
-        explanation, conv_id, msg_id, latency_ms = await reasoning_service.answer_student_inquiry(
+        explanation, conv_id, msg_id, latency_ms, *_ = await reasoning_service.answer_student_inquiry(
             db=db,
             query="What is an Operating System Process and how is it different from a thread?",
             conversation_id=None,
@@ -62,7 +62,7 @@ async def test_scenario_2_os_process_hinglish():
 @pytest.mark.asyncio
 async def test_scenario_3_dbms_normalization_english():
     async with AsyncSessionLocal() as db:
-        explanation, conv_id, msg_id, latency_ms = await reasoning_service.answer_student_inquiry(
+        explanation, conv_id, msg_id, latency_ms, *_ = await reasoning_service.answer_student_inquiry(
             db=db,
             query="Explain Database Normalization (1NF, 2NF, 3NF)",
             conversation_id=None,
@@ -77,7 +77,7 @@ async def test_scenario_3_dbms_normalization_english():
 @pytest.mark.asyncio
 async def test_scenario_4_recursion_analogy():
     async with AsyncSessionLocal() as db:
-        explanation, conv_id, msg_id, latency_ms = await reasoning_service.answer_student_inquiry(
+        explanation, conv_id, msg_id, latency_ms, *_ = await reasoning_service.answer_student_inquiry(
             db=db,
             query="Explain recursion using an everyday Indian analogy",
             conversation_id=None,
@@ -93,7 +93,7 @@ async def test_scenario_4_recursion_analogy():
 async def test_scenario_5_multi_turn_followup():
     async with AsyncSessionLocal() as db:
         # Turn 1: Primary inquiry
-        exp1, conv_id, msg1, _ = await reasoning_service.answer_student_inquiry(
+        exp1, conv_id, msg1, _, *_ = await reasoning_service.answer_student_inquiry(
             db=db,
             query="What is a mutex lock in OS?",
             conversation_id=None,
@@ -104,7 +104,7 @@ async def test_scenario_5_multi_turn_followup():
         assert conv_id is not None
         
         # Turn 2: Follow-up question relying on previous context
-        exp2, conv_id2, msg2, latency2 = await reasoning_service.answer_student_inquiry(
+        exp2, conv_id2, msg2, latency2, *_ = await reasoning_service.answer_student_inquiry(
             db=db,
             query="What if two threads try to acquire it at the exact same millisecond? Who wins?",
             conversation_id=conv_id,

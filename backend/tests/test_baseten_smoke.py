@@ -82,3 +82,4 @@ async def test_curriculum_grounded_rag_query():
     assert len(explanation.curriculum_sources) > 0
     assert "Recursion" in explanation.curriculum_sources[0].chapter or "Foundations" in explanation.curriculum_sources[0].chapter
     print(f"\n[Test 5] RAG Query with Citation: {latency}ms, Grounding Chapter: {explanation.curriculum_sources[0].chapter}")
+

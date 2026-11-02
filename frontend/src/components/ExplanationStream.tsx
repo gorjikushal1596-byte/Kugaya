@@ -183,6 +183,54 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({
         )}
       </div>
 
+      {/* Curriculum Grounding & Citations (RAG Layer) */}
+      {explanation.curriculum_sources && explanation.curriculum_sources.length > 0 && (
+        <div className="p-5 rounded-2xl bg-surface-container-low border border-primary/40 shadow-neon">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-lg">verified</span>
+              <h3 className="text-sm font-bold tracking-wide text-primary uppercase">
+                Curriculum Grounding & Citations
+              </h3>
+            </div>
+            <span className="px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-[10px] text-primary font-mono">
+              Hybrid Dense+Sparse RAG
+            </span>
+          </div>
+          <div className="space-y-3">
+            {explanation.curriculum_sources.map((src, idx) => (
+              <div
+                key={idx}
+                className="p-3.5 rounded-xl bg-surface-container-high/60 border border-outline-variant/30 space-y-1.5"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-on-surface">
+                    <span className="material-symbols-outlined text-primary text-sm">menu_book</span>
+                    <span>{src.document_title}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-md bg-surface-container-highest text-[10px] text-on-surface-variant">
+                      {src.chapter}
+                    </span>
+                    {src.page_number && (
+                      <span className="px-1.5 py-0.5 rounded-md bg-secondary/20 text-[10px] text-secondary font-mono">
+                        p. {src.page_number}
+                      </span>
+                    )}
+                    <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-[10px] text-emerald-300 font-mono">
+                      {src.relevance_score > 0 ? `${src.relevance_score}% match` : 'Accredited'}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-on-surface-variant italic border-l-2 border-primary/60 pl-2.5 py-0.5 bg-surface-container-lowest/40 rounded-r-md">
+                  "{src.excerpt}"
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Card 5: Comprehension Check (Muse Spark Open) */}
       {explanation.comprehension_check && (
         <div className="p-5 rounded-2xl bg-surface-container-low border border-surface-tint/40 shadow-neon">

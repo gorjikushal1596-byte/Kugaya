@@ -10,11 +10,13 @@ from app.schemas import (
     TutorInquiryRequest, TutorInquiryResponse,
     ConversationSummary, ConversationDetail,
     STTResponse, TTSRequest, TTSResponse,
-    UserProfileUpdate, UserProfileResponse, SavedLessonItem
+    UserProfileUpdate, UserProfileResponse, SavedLessonItem,
+    CurriculumUploadResponse, CurriculumDocumentSummary
 )
 from app.services.speech_service import gnani_speech_service
 from app.services.reasoning_service import reasoning_service
 from app.services.conversation_service import conversation_service
+from app.services.rag_service import curriculum_rag_service
 
 router = APIRouter()
 
@@ -63,13 +65,14 @@ async def update_user_profile(payload: UserProfileUpdate, db: AsyncSession = Dep
 # Core AI Tutor Reasoning Endpoint
 @router.post("/tutor/query", response_model=TutorInquiryResponse)
 async def submit_query(req: TutorInquiryRequest, db: AsyncSession = Depends(get_db)):
-    explanation, conv_id, msg_id, latency_ms = await reasoning_service.answer_student_inquiry(
+    explanation, conv_id, msg_id, latency_ms, has_grounding = await reasoning_service.answer_student_inquiry(
         db=db,
         query=req.query,
         conversation_id=req.conversation_id,
         language=req.language or "Telugu",
         dialect=req.dialect or "Andhra & Telangana",
-        topic=req.topic or "Computer Science"
+        topic=req.topic or "Computer Science",
+        use_curriculum_rag=req.use_curriculum_rag if req.use_curriculum_rag is not None else True
     )
 
     return TutorInquiryResponse(
@@ -81,6 +84,7 @@ async def submit_query(req: TutorInquiryRequest, db: AsyncSession = Depends(get_
         explanation=explanation,
         provider="baseten/muse-spark-open",
         latency_ms=latency_ms,
+        has_curriculum_grounding=has_grounding,
         created_at=datetime.datetime.utcnow()
     )
 
@@ -179,3 +183,57 @@ async def save_lesson(item: SavedLessonItem, db: AsyncSession = Depends(get_db))
     db.add(new_l)
     await db.commit()
     return {"status": "success", "id": new_l.id}
+
+# Curriculum Grounding & RAG Endpoints
+@router.post("/curriculum/upload", response_model=CurriculumUploadResponse)
+async def upload_curriculum_document(
+    file: UploadFile = File(...),
+    title: str = Form(None),
+    subject: str = Form("Computer Science"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Ingests PDF or text curriculum material, chunks and indexes with hybrid vector + sparse embeddings.
+    """
+    content = await file.read()
+    if len(content) > 25 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File exceeds maximum allowed upload size of 25MB.")
+
+    filename = file.filename or "curriculum_doc.txt"
+    doc_title = title.strip() if title and title.strip() else filename
+
+    try:
+        doc_summary = await curriculum_rag_service.ingest_document(
+            db=db,
+            file_bytes=content,
+            filename=filename,
+            title=doc_title,
+            subject=subject
+        )
+        return CurriculumUploadResponse(
+            document_id=doc_summary.id,
+            title=doc_summary.title,
+            chunks_created=doc_summary.chunk_count,
+            message=f"Successfully ingested and indexed '{doc_summary.title}' into {doc_summary.chunk_count} curriculum chunks."
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process curriculum document: {str(e)}")
+
+@router.get("/curriculum/documents", response_model=list[CurriculumDocumentSummary])
+async def list_curriculum_documents(db: AsyncSession = Depends(get_db)):
+    """
+    Returns list of all active uploaded textbooks, syllabus guides and lecture notes.
+    """
+    return await curriculum_rag_service.list_documents(db)
+
+@router.delete("/curriculum/documents/{document_id}")
+async def delete_curriculum_document(document_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Deletes an uploaded curriculum document and all associated chunks and embeddings.
+    """
+    deleted = await curriculum_rag_service.delete_document(db, document_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Curriculum document not found.")
+    return {"status": "success", "deleted_document_id": document_id}
