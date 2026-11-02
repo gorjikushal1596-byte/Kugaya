@@ -1,19 +1,15 @@
 import React, { useState } from 'react';
-import type { UserProfile } from '../types';
-import type { ScreenType } from '../components/Navigation';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from '../contexts/UserContext';
 
-interface ProfileScreenProps {
-  user: UserProfile;
-  onUpdate: (updated: Partial<UserProfile>) => void;
-  onNavigate: (screen: ScreenType) => void;
-}
-
-export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onUpdate, onNavigate }) => {
+export const ProfileScreen: React.FC = () => {
+  const { user, updateUserPreferences } = useUser();
+  const navigate = useNavigate();
   const [name, setName] = useState(user.name);
   const [isEditing, setIsEditing] = useState(false);
 
-  const handleSaveName = () => {
-    onUpdate({ name });
+  const handleSaveName = async () => {
+    await updateUserPreferences({ name });
     setIsEditing(false);
   };
 
@@ -74,12 +70,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onUpdate, on
         </div>
       </div>
 
-      {/* Quick Navigation Settings */}
+      {/* Navigation Settings */}
       <div className="space-y-2">
         <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Settings</h3>
         <div className="rounded-2xl bg-surface-container-low border border-surface-container-highest overflow-hidden divide-y divide-surface-container-highest/60">
           <button
-            onClick={() => onNavigate('languages')}
+            onClick={() => navigate('/languages')}
             className="w-full p-4 flex items-center justify-between text-left hover:bg-surface-container-high transition-colors"
           >
             <div className="flex items-center gap-3">
@@ -93,7 +89,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onUpdate, on
           </button>
 
           <button
-            onClick={() => onNavigate('onboarding')}
+            onClick={() => navigate('/onboarding')}
             className="w-full p-4 flex items-center justify-between text-left hover:bg-surface-container-high transition-colors"
           >
             <div className="flex items-center gap-3">
@@ -114,6 +110,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onUpdate, on
         <div>STT: Gnani AI Prisma v2.5 (Ready)</div>
         <div>TTS: Gnani AI Timbre v2.5 (Ready)</div>
         <div>Reasoning: Multilingual 4-Card Adapter (Active)</div>
+        <div>Curriculum RAG: BAAI/bge-m3 Semantic Embeddings (Configured)</div>
         <div>Persistence: SQLite (Async SQLAlchemy)</div>
       </div>
     </div>

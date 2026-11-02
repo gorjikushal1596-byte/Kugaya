@@ -52,3 +52,4 @@ async def test_voice_stt():
         res = resp.json()
         assert "transcription" in res
         assert res["confidence"] > 0
+

@@ -35,3 +35,4 @@ async def health_check():
         "environment": settings.ENVIRONMENT,
         "ai_provider": settings.AI_PROVIDER
     }
+

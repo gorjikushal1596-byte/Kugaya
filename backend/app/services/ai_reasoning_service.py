@@ -1,6 +1,7 @@
 import logging
 from app.config import settings
-from app.schemas import ExplanationCards
+from app.schemas import ExplanationCards, CurriculumGroundingSource
+from app.services.rag_service import curriculum_rag_service
 
 logger = logging.getLogger(__name__)
 
@@ -9,11 +10,12 @@ class AIReasoningAdapter:
     Kugaya Reasoning Provider Adapter:
     - Primary candidate: Evon v3.3 (subject to access key)
     - Fallback: Gemini 1.5/2.5 or local mock generator
-    Generates structured 4-Card Multi-modal Explanation model:
+    Generates structured 4-Card Multi-modal Explanation model grounded via Curriculum RAG:
       1. Simple Explanation (Code-mixed e.g., Tenglish/Hinglish)
       2. Real-Life Cultural/Relatable Analogy
       3. Key English Technical Terms
       4. Exam-Ready Academic Answer
+      + Grounded Textbook Citations
     """
 
     def __init__(self):
@@ -22,9 +24,20 @@ class AIReasoningAdapter:
         self.gemini_key = settings.GEMINI_API_KEY
 
     async def generate_explanation(self, query: str, language: str = "Telugu", dialect: str = "Andhra & Telangana") -> ExplanationCards:
-        # Check if query matches common CS concepts or general queries
         q_lower = query.lower()
         
+        # Retrieve curriculum grounding
+        sources = await curriculum_rag_service.retrieve_grounding(query)
+        grounding_sources = [
+            CurriculumGroundingSource(
+                document_title=s.document_title,
+                chapter=s.chapter,
+                page_number=s.page_number,
+                relevance_score=s.relevance_score,
+                excerpt=s.excerpt
+            ) for s in sources
+        ]
+
         # 1. Pointers / Memory concept
         if "pointer" in q_lower or "memory" in q_lower or "dereferencing" in q_lower:
             return ExplanationCards(
@@ -35,7 +48,8 @@ class AIReasoningAdapter:
                     "Memory Overhead (8 Bytes) - Address pointer allocation size on 64-bit OS",
                     "Nullability Guard (ptr != nullptr) - Preventing segmentation faults and crashes"
                 ],
-                exam_ready_answer="A pointer in C/C++ is a derivative data type whose value refers to (or points to) another value stored elsewhere in computer memory using its memory address. Dereferencing is performed using the unary asterisk (*) operator."
+                exam_ready_answer="A pointer in C/C++ is a derivative data type whose value refers to (or points to) another value stored elsewhere in computer memory using its memory address. Dereferencing is performed using the unary asterisk (*) operator.",
+                curriculum_sources=grounding_sources
             )
             
         # 2. Recursion concept
@@ -48,7 +62,8 @@ class AIReasoningAdapter:
                     "Call Stack Overhead - Memory frames pushed per recursive call",
                     "Stack Overflow Exception - Exceeding call stack memory limits"
                 ],
-                exam_ready_answer="Recursion is a computational method where the solution to a problem depends on solutions to smaller instances of the same problem. A recursive function consists of a base case and a recursive case."
+                exam_ready_answer="Recursion is a computational method where the solution to a problem depends on solutions to smaller instances of the same problem. A recursive function consists of a base case and a recursive case.",
+                curriculum_sources=grounding_sources
             )
 
         # 3. Dynamic general response tailored to selected base language
@@ -60,7 +75,8 @@ class AIReasoningAdapter:
                 "Implementation Protocol - Practical guidelines and execution",
                 "Best Practices - Optimization and reliable safety rules"
             ],
-            exam_ready_answer=f"The subject '{query}' encompasses core computational principles systematically applied to solve real-world problems through structural decomposition, rigorous logic, and targeted execution."
+            exam_ready_answer=f"The subject '{query}' encompasses core computational principles systematically applied to solve real-world problems through structural decomposition, rigorous logic, and targeted execution.",
+            curriculum_sources=grounding_sources
         )
 
 ai_reasoning_adapter = AIReasoningAdapter()

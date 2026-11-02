@@ -2,11 +2,19 @@ from pydantic import BaseModel
 from typing import Optional, List
 import datetime
 
+class CurriculumGroundingSource(BaseModel):
+    document_title: str
+    chapter: str
+    page_number: Optional[int] = None
+    relevance_score: float
+    excerpt: str
+
 class ExplanationCards(BaseModel):
     simple_explanation: str
     real_life_analogy: str
     technical_terms: List[str]
     exam_ready_answer: str
+    curriculum_sources: Optional[List[CurriculumGroundingSource]] = None
 
 class QueryRequest(BaseModel):
     query: str

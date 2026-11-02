@@ -63,3 +63,4 @@ $env:PYTHONPATH="."
 .\venv\Scripts\pytest tests/ -v
 ```
 All tests pass (Health, Profiles, Multi-card reasoning generation, and Speech STT).
+

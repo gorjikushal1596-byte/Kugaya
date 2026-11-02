@@ -48,12 +48,8 @@ export const SavedScreen: React.FC = () => {
               <div className="pt-2 flex items-center justify-between border-t border-surface-container-highest/60 text-xs">
                 <span className="text-primary font-semibold flex items-center gap-1">
                   <span className="material-symbols-outlined text-sm">verified</span>
-                  Exam Verified
+                  Exam Verified Notes
                 </span>
-                <button className="text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1">
-                  <span>Open Cards</span>
-                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </button>
               </div>
             </div>
           ))}

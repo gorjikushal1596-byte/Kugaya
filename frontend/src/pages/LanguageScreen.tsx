@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
-import type { UserProfile } from '../types';
-
-interface LanguageScreenProps {
-  user: UserProfile;
-  onUpdate: (updated: Partial<UserProfile>) => void;
-}
+import { useNavigate } from 'react-router-dom';
+import { useUser } from '../contexts/UserContext';
 
 const LANGUAGES = [
   { id: 'Telugu', native: 'తెలుగు', region: 'Andhra & Telangana' },
@@ -15,17 +11,25 @@ const LANGUAGES = [
   { id: 'English', native: 'English', region: 'Standard Academic' },
 ];
 
-export const LanguageScreen: React.FC<LanguageScreenProps> = ({ user, onUpdate }) => {
+export const LanguageScreen: React.FC = () => {
+  const { user, updateUserPreferences } = useUser();
+  const navigate = useNavigate();
   const [selectedLang, setSelectedLang] = useState(user.base_language);
   const [speakingMode, setSpeakingMode] = useState<'bilingual' | 'immersion'>(user.speaking_mode);
+  const [isSavedNotice, setIsSavedNotice] = useState(false);
 
-  const handleSave = () => {
-    const langObj = LANGUAGES.find(l => l.id === selectedLang);
-    onUpdate({
+  const handleSave = async () => {
+    const langObj = LANGUAGES.find((l) => l.id === selectedLang);
+    await updateUserPreferences({
       base_language: selectedLang,
       dialect: langObj?.region || 'Standard',
-      speaking_mode: speakingMode
+      speaking_mode: speakingMode,
     });
+    setIsSavedNotice(true);
+    setTimeout(() => {
+      setIsSavedNotice(false);
+      navigate('/');
+    }, 1000);
   };
 
   return (
@@ -96,6 +100,12 @@ export const LanguageScreen: React.FC<LanguageScreenProps> = ({ user, onUpdate }
           </button>
         </div>
       </div>
+
+      {isSavedNotice && (
+        <div className="p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs text-center font-bold">
+          Preferences saved successfully!
+        </div>
+      )}
 
       <button
         onClick={handleSave}

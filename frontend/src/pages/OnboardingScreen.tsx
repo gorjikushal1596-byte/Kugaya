@@ -1,36 +1,35 @@
-import React from 'react';
-import type { UserProfile } from '../types';
-
-interface OnboardingScreenProps {
-  user: UserProfile;
-  onComplete: (updated: Partial<UserProfile>) => void;
-}
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from '../contexts/UserContext';
 
 const LANGUAGES = [
-  { id: 'Telugu', native: 'తెలుగు', region: 'Andhra & Telangana', active: true },
-  { id: 'Hindi', native: 'हिन्दी', region: 'National & North', active: false },
-  { id: 'Tamil', native: 'தமிழ்', region: 'Tamil Nadu', active: false },
-  { id: 'Kannada', native: 'ಕನ್ನಡ', region: 'Karnataka', active: false },
-  { id: 'Malayalam', native: 'മലയാളം', region: 'Kerala', active: false },
-  { id: 'English', native: 'English', region: 'Standard Academic', active: false },
+  { id: 'Telugu', native: 'తెలుగు', region: 'Andhra & Telangana' },
+  { id: 'Hindi', native: 'हिन्दी', region: 'National & North' },
+  { id: 'Tamil', native: 'தமிழ்', region: 'Tamil Nadu' },
+  { id: 'Kannada', native: 'ಕನ್ನಡ', region: 'Karnataka' },
+  { id: 'Malayalam', native: 'മലയാളം', region: 'Kerala' },
+  { id: 'English', native: 'English', region: 'Standard Academic' },
 ];
 
-export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ user, onComplete }) => {
-  const [selectedLang, setSelectedLang] = React.useState(user.base_language || 'Telugu');
-  const [speakingMode, setSpeakingMode] = React.useState<'bilingual' | 'immersion'>(user.speaking_mode || 'bilingual');
+export const OnboardingScreen: React.FC = () => {
+  const { user, updateUserPreferences } = useUser();
+  const navigate = useNavigate();
+  const [selectedLang, setSelectedLang] = useState(user.base_language || 'Telugu');
+  const [speakingMode, setSpeakingMode] = useState<'bilingual' | 'immersion'>(user.speaking_mode || 'bilingual');
 
-  const handleFinish = () => {
-    const langObj = LANGUAGES.find(l => l.id === selectedLang);
-    onComplete({
+  const handleFinish = async () => {
+    const langObj = LANGUAGES.find((l) => l.id === selectedLang);
+    await updateUserPreferences({
       base_language: selectedLang,
       dialect: langObj?.region || 'Standard',
-      speaking_mode: speakingMode
+      speaking_mode: speakingMode,
     });
+    navigate('/');
   };
 
   return (
-    <div className="min-h-screen px-4 py-8 flex flex-col justify-between max-w-lg mx-auto">
-      {/* Top Ambient Glow */}
+    <div className="min-h-screen px-4 py-8 flex flex-col justify-between max-w-lg mx-auto bg-surface text-on-surface">
+      {/* Top Ambient Glow & Headlines */}
       <div className="flex flex-col items-center text-center space-y-3 mt-4">
         <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-secondary-container via-surface-tint to-primary-container p-0.5 shadow-neon-strong flex items-center justify-center mb-2">
           <div className="w-full h-full bg-surface-container-lowest rounded-[14px] flex items-center justify-center">

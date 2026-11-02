@@ -1,32 +1,28 @@
 import React, { useState } from 'react';
-import type { UserProfile } from '../types';
-import type { ScreenType } from '../components/Navigation';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from '../contexts/UserContext';
 
-interface HomeScreenProps {
-  user: UserProfile;
-  onNavigate: (screen: ScreenType) => void;
-  onQuickQuery: (q: string) => void;
-}
-
-export const HomeScreen: React.FC<HomeScreenProps> = ({ user, onNavigate, onQuickQuery }) => {
+export const HomeScreen: React.FC = () => {
+  const { user } = useUser();
+  const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState('');
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchInput.trim()) {
-      onQuickQuery(searchInput.trim());
+      navigate('/tutor', { state: { initialQuery: searchInput.trim() } });
     }
   };
 
   const sampleTopics = [
-    { title: 'Pointers vs References', lang: 'Tenglish', tag: 'C++ Systems', progress: 80, icon: 'code' },
-    { title: 'OS Process vs Thread', lang: 'Hinglish', tag: 'Operating Systems', progress: 45, icon: 'memory' },
-    { title: 'Database Indexing (B-Tree)', lang: 'Tanglish', tag: 'DBMS', progress: 60, icon: 'database' },
+    { title: 'Pointers vs References', lang: 'Tenglish', tag: 'C++ Systems', progress: 80, query: 'Explain difference between Pointer and Reference in C++' },
+    { title: 'OS Process vs Thread', lang: 'Hinglish', tag: 'Operating Systems', progress: 45, query: 'Explain Process vs Thread with real life analogy' },
+    { title: 'Database Indexing (B-Tree)', lang: 'Tanglish', tag: 'DBMS', progress: 60, query: 'How does database indexing work in SQL?' },
   ];
 
   const examTopics = [
-    { title: 'Deadlock Necessary Conditions (Coffman)', badge: '10 Marks', desc: 'Mutual exclusion, Hold & wait, No preemption, Circular wait.' },
-    { title: 'TCP Three-Way Handshake (SYN, SYN-ACK, ACK)', badge: '8 Marks', desc: 'Step-by-step state transition breakdown with sequence numbers.' },
+    { title: 'Deadlock Necessary Conditions (Coffman)', badge: '10 Marks', desc: 'Mutual exclusion, Hold & wait, No preemption, Circular wait.', query: 'Explain Coffman deadlock conditions for 10 mark university exam' },
+    { title: 'TCP Three-Way Handshake (SYN, SYN-ACK, ACK)', badge: '8 Marks', desc: 'Step-by-step state transition breakdown with sequence numbers.', query: 'Explain TCP Three Way Handshake with state diagram' },
   ];
 
   return (
@@ -68,14 +64,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ user, onNavigate, onQuic
 
           <div className="pt-2 flex items-center gap-2">
             <button
-              onClick={() => onNavigate('voice')}
+              onClick={() => navigate('/voice')}
               className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-surface-tint to-primary-container text-on-primary font-bold text-xs shadow-neon flex items-center justify-center gap-2 active:scale-95 transition-all"
             >
               <span className="material-symbols-outlined text-lg fill-1">mic</span>
               <span>Start Voice Session</span>
             </button>
             <button
-              onClick={() => onNavigate('tutor')}
+              onClick={() => navigate('/tutor')}
               className="px-4 py-3 rounded-2xl bg-surface-container-highest hover:bg-surface-container-high border border-outline-variant/40 text-on-surface font-semibold text-xs flex items-center justify-center gap-1.5 transition-all"
             >
               <span className="material-symbols-outlined text-lg">edit</span>
@@ -109,7 +105,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ user, onNavigate, onQuic
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-on-surface">Continue Learning</h3>
-          <button onClick={() => onNavigate('history')} className="text-xs text-primary font-semibold hover:underline">
+          <button onClick={() => navigate('/history')} className="text-xs text-primary font-semibold hover:underline">
             View All
           </button>
         </div>
@@ -118,7 +114,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ user, onNavigate, onQuic
           {sampleTopics.map((topic, i) => (
             <div
               key={i}
-              onClick={() => onQuickQuery(`Explain ${topic.title}`)}
+              onClick={() => navigate('/tutor', { state: { initialQuery: topic.query } })}
               className="p-4 rounded-2xl bg-surface-container-low border border-surface-container-highest hover:border-primary-container/40 transition-all cursor-pointer group active:scale-98"
             >
               <div className="flex items-center justify-between mb-2">
@@ -156,7 +152,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ user, onNavigate, onQuic
           {examTopics.map((ex, i) => (
             <div
               key={i}
-              onClick={() => onQuickQuery(`Explain ${ex.title} for exam`)}
+              onClick={() => navigate('/tutor', { state: { initialQuery: ex.query } })}
               className="p-3.5 rounded-2xl bg-surface-container-low border border-outline-variant/30 flex items-start justify-between gap-3 hover:border-primary-container/40 transition-all cursor-pointer active:scale-98"
             >
               <div className="space-y-1">

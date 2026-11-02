@@ -1,19 +1,16 @@
 import React, { useState } from 'react';
-import type { UserProfile, LearningSessionResponse } from '../types';
+import { useUser } from '../contexts/UserContext';
+import type { LearningSessionResponse } from '../types';
 import { NeuralOrb } from '../components/NeuralOrb';
 import { transcribeAudio, sendQuery, synthesizeTTS } from '../services/api';
 import { ExplanationStream } from '../components/ExplanationStream';
 
-interface VoiceScreenProps {
-  user: UserProfile;
-}
-
-export const VoiceScreen: React.FC<VoiceScreenProps> = ({ user }) => {
+export const VoiceScreen: React.FC = () => {
+  const { user } = useUser();
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [liveTranscription, setLiveTranscription] = useState('');
   const [activeSession, setActiveSession] = useState<LearningSessionResponse | null>(null);
-  const [voiceElapsedSeconds] = useState(7);
 
   const handleToggleVoice = async () => {
     if (isListening) {
@@ -23,15 +20,15 @@ export const VoiceScreen: React.FC<VoiceScreenProps> = ({ user }) => {
 
     try {
       setIsListening(true);
-      setLiveTranscription(`Listening to your question in ${user.base_language}...`);
+      setLiveTranscription(`Listening for your speech in ${user.base_language}...`);
 
-      // Mock audio blob sending to Gnani Prisma STT adapter
+      // Mock audio blob sent to Gnani Prisma STT adapter
       const dummyBlob = new Blob(['sample-pcm-data'], { type: 'audio/wav' });
       const sttResult = await transcribeAudio(dummyBlob, user.base_language.toLowerCase().slice(0, 2));
-      
+
       setLiveTranscription(sttResult.transcription);
       setIsListening(false);
-      
+
       // Auto-query the AI reasoning service with transcription
       setIsSpeaking(true);
       const queryRes = await sendQuery(
@@ -54,7 +51,7 @@ export const VoiceScreen: React.FC<VoiceScreenProps> = ({ user }) => {
       }
     } catch (e) {
       console.error(e);
-      setLiveTranscription('Voice service connection error. Please try again.');
+      setLiveTranscription('Voice service connection failed. Please verify backend.');
     } finally {
       setTimeout(() => setIsSpeaking(false), 3000);
     }
@@ -72,7 +69,7 @@ export const VoiceScreen: React.FC<VoiceScreenProps> = ({ user }) => {
         </div>
         <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-high border border-primary-container/20 text-xs text-primary font-semibold">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>Live 00:{voiceElapsedSeconds < 10 ? `0${voiceElapsedSeconds}` : voiceElapsedSeconds}</span>
+          <span>Live Audio Mode</span>
         </div>
       </div>
 
@@ -107,6 +104,9 @@ export const VoiceScreen: React.FC<VoiceScreenProps> = ({ user }) => {
             query={activeSession.query}
             explanation={activeSession.explanation}
             language={activeSession.language}
+            onAskFollowUp={(followUp) => {
+              sendQuery(followUp, user.base_language, user.dialect, 'Voice Follow-up').then(setActiveSession);
+            }}
           />
         </div>
       )}

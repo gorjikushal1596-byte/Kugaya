@@ -6,11 +6,19 @@ interface ExplanationStreamProps {
   query: string;
   explanation: ExplanationCards;
   language: string;
+  onAskFollowUp?: (followUpQuery: string) => void;
 }
 
-export const ExplanationStream: React.FC<ExplanationStreamProps> = ({ query, explanation, language }) => {
+export const ExplanationStream: React.FC<ExplanationStreamProps> = ({
+  query,
+  explanation,
+  language,
+  onAskFollowUp,
+}) => {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState(false);
+  const [followUpText, setFollowUpText] = useState('');
 
   const handlePlayVoice = async () => {
     try {
@@ -21,9 +29,9 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({ query, exp
         audio.play().catch(() => {});
       }
     } catch (e) {
-      console.error(e);
+      console.error('Audio synthesis failed:', e);
     } finally {
-      setTimeout(() => setIsPlayingAudio(false), 2000);
+      setTimeout(() => setIsPlayingAudio(false), 2500);
     }
   };
 
@@ -32,17 +40,27 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({ query, exp
       await saveLesson({
         title: query,
         category: 'Computer Science',
-        key_points: explanation.exam_ready_answer.slice(0, 160) + '...'
+        key_points: explanation.exam_ready_answer.slice(0, 160) + '...',
       });
       setIsSaved(true);
+      setSaveSuccessMessage(true);
+      setTimeout(() => setSaveSuccessMessage(false), 3000);
     } catch (e) {
-      console.error(e);
+      console.error('Failed to save concept:', e);
+    }
+  };
+
+  const handleFollowUpSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (followUpText.trim() && onAskFollowUp) {
+      onAskFollowUp(followUpText.trim());
+      setFollowUpText('');
     }
   };
 
   return (
     <div className="w-full space-y-4">
-      {/* Student Query Card */}
+      {/* Student Question Card */}
       <div className="p-4 rounded-2xl bg-surface-container-high/60 border border-primary-container/20 backdrop-blur-md shadow-md">
         <div className="flex items-center justify-between text-xs text-on-surface-variant mb-2">
           <span className="flex items-center gap-1.5 text-primary font-semibold">
@@ -50,13 +68,13 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({ query, exp
             Student Inquiry
           </span>
           <span className="px-2 py-0.5 rounded-full bg-surface-container-highest text-[10px] text-primary">
-            {language}
+            {language} + English
           </span>
         </div>
         <p className="text-base font-semibold text-on-surface">{query}</p>
       </div>
 
-      {/* Card 1: Simple Explanation (Code-mixed) */}
+      {/* Card 1: Simple Vernacular Explanation (Code-Mixed) */}
       <div className="p-5 rounded-2xl bg-surface-container-low border border-primary-container/30 shadow-neon relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary-container/10 rounded-full blur-2xl pointer-events-none"></div>
         <div className="flex items-center justify-between mb-3">
@@ -73,7 +91,7 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({ query, exp
             <span className="material-symbols-outlined text-[16px] fill-1">
               {isPlayingAudio ? 'graphic_eq' : 'volume_up'}
             </span>
-            <span>{isPlayingAudio ? 'Listening...' : 'Listen Voice'}</span>
+            <span>{isPlayingAudio ? 'Playing...' : 'Voice Playback'}</span>
           </button>
         </div>
         <p className="text-sm md:text-base text-on-surface leading-relaxed whitespace-pre-line">
@@ -133,12 +151,59 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({ query, exp
             <span className="material-symbols-outlined text-sm">
               {isSaved ? 'bookmark_added' : 'bookmark'}
             </span>
-            <span>{isSaved ? 'Saved to Library' : 'Save Concept'}</span>
+            <span>{isSaved ? 'Saved to Notes' : 'Save Concept'}</span>
           </button>
         </div>
         <p className="text-xs md:text-sm text-on-surface-variant font-mono bg-surface-container-lowest/80 p-3.5 rounded-xl border border-outline-variant/20 leading-relaxed">
           {explanation.exam_ready_answer}
         </p>
+        {saveSuccessMessage && (
+          <div className="mt-2 text-xs text-emerald-400 flex items-center gap-1">
+            <span className="material-symbols-outlined text-xs">check</span>
+            <span>Added to Saved Lessons library!</span>
+          </div>
+        )}
+      </div>
+
+      {/* RAG Curriculum Grounding Reference Citation (if available) */}
+      {explanation.curriculum_sources && explanation.curriculum_sources.length > 0 && (
+        <div className="p-4 rounded-2xl bg-surface-container-high/40 border border-surface-tint/30 space-y-2">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-surface-tint uppercase">
+            <span className="material-symbols-outlined text-sm">verified_user</span>
+            <span>Curriculum Grounded Source (RAG)</span>
+          </div>
+          {explanation.curriculum_sources.map((src, idx) => (
+            <div key={idx} className="text-xs text-on-surface-variant bg-surface-container-lowest p-2.5 rounded-xl border border-outline-variant/20">
+              <span className="font-semibold text-on-surface">{src.document_title}</span> — Chapter: {src.chapter}
+              {src.page_number && ` (p. ${src.page_number})`}
+              <p className="mt-1 text-[11px] italic text-on-surface-variant/80">"{src.excerpt}"</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Follow-up Question Component */}
+      <div className="p-4 rounded-2xl bg-surface-container-high/50 border border-primary-container/20 space-y-2">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-on-surface">
+          <span className="material-symbols-outlined text-sm text-primary">reply</span>
+          <span>Ask a Follow-up Question on this Concept</span>
+        </div>
+        <form onSubmit={handleFollowUpSubmit} className="flex gap-2">
+          <input
+            type="text"
+            value={followUpText}
+            onChange={(e) => setFollowUpText(e.target.value)}
+            placeholder={`Ask follow-up in ${language}... (e.g. "What if the pointer is uninitialized?")`}
+            className="flex-1 px-3.5 py-2 rounded-xl bg-surface-container-lowest border border-surface-container-highest text-xs text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container"
+          />
+          <button
+            type="submit"
+            disabled={!followUpText.trim()}
+            className="px-3.5 py-2 rounded-xl bg-primary-container text-on-primary-container text-xs font-bold disabled:opacity-40"
+          >
+            Send
+          </button>
+        </form>
       </div>
     </div>
   );

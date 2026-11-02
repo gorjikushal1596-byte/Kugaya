@@ -2,41 +2,42 @@
 ## PROJECT_STATUS.md
 
 **Last Updated:** 2026-11-02  
-**Current Milestone:** Phase 1, 2, 3, 4 & 5 Core Implementation Complete & Verified.
+**Current Milestone:** Frontend Application Architecture & Multi-Modal Tutor Flow Complete.
 
 ---
 
-### 1. Completed Tasks
-- [x] **Repository Discovery & Analysis**:
-  - Unzipped and analyzed all 4 Google Stitch prototype exports (`stitch_kugaya_ai_language_tutor_ui` 0 through 3).
-  - Extracted shared design system specifications ("Futuristic Neon Intelligence" theme, colors, typography, Material Symbols).
-- [x] **Git Repository Initialization**:
-  - Initialized git repo on branch `main` with remote origin set to `https://github.com/gorjikushal1596-byte/Kugaya.git`.
-  - Configured comprehensive `.gitignore` for node_modules, Python venvs, databases, and secrets.
-- [x] **Fullstack Architecture & Scaffolding**:
-  - **Frontend (`frontend/`)**: Vite + React 19 + TypeScript + Tailwind CSS configured with all Stitch neon tokens (`#10131c` dark surface, `#00e5ff` cyan, `#5b07c1` violet, Plus Jakarta Sans, neon glow effects).
-  - **Backend (`backend/`)**: Python 3.14 + FastAPI + Pydantic v2 + SQLite with async SQLAlchemy & greenlet.
-- [x] **AI & Speech Provider Adapters**:
-  - **Gnani AI Prisma v2.5 (STT)**: Speech-to-text adapter supporting Indian vernaculars with development mock fallback.
-  - **Gnani AI Timbre v2.5 (TTS)**: Text-to-speech adapter with Indian prosody and development mock fallback.
-  - **AI Reasoning Adapter**: Multilingual adapter producing the 4-tier model (*Simple Code-mixed*, *Analogy*, *Technical terms*, *Exam answer*), ready for Evon v3.3, Gemini, or local generator.
-- [x] **All 8 Required Screens Integrated**:
-  1. `OnboardingScreen` (Base language grid & speaking mode)
-  2. `HomeScreen` (Greeting, streaks, quick ask, continue learning carousel, high-yield exam topics)
-  3. `TutorScreen` (Interactive query canvas & 4-card explanation stream)
-  4. `VoiceScreen` (Neural Sound Orb visualizer, speech transcription preview, audio playback)
-  5. `HistoryScreen` (Chronological session browser)
-  6. `SavedScreen` (Bookmarked concepts & exam notes)
-  7. `LanguageScreen` (Dynamic language & dialect switcher)
-  8. `ProfileScreen` (User stats, streak tracking, diagnostic panel)
+### 1. Completed Modules & Refinements
+- [x] **Frontend Architecture Organization**:
+  - Modularized into `components/`, `pages/`, `layouts/`, `contexts/`, `services/`, and `types/`.
+  - Integrated `react-router-dom` (v7) with seamless navigation between all 8 Kugaya application views:
+    1. `/onboarding` — Regional language selection & teaching mode configuration.
+    2. `/` — Home dashboard with streaks, quick search pill, continue learning carousel, and exam topics.
+    3. `/tutor` — AI Tutor workspace with 4-card explanation stream, inline microphone STT, follow-up inquiry bar.
+    4. `/voice` — Voice learning mode with animated Neural Sound Orb and live speech-to-text / text-to-speech loop.
+    5. `/history` — Browsable session history with past prompt restoration.
+    6. `/saved` — Bookmarked lessons and exam revision notes.
+    7. `/languages` — Base language and dialect configuration.
+    8. `/profile` — Student statistics, mastery points, and system architecture diagnostics.
+  - Implemented `UserContext` provider ensuring reactive base language and student profile across the whole app.
+  - Preserved the Google Stitch Neon visual system (deep `#10131c` canvas, `#00e5ff` cyan, `#5b07c1` violet, Plus Jakarta Sans, and Material Symbols).
+
+- [x] **Core Learning Interaction Flow**:
+  - Student Question → Language Preference → Multi-card reasoning → Audio Playback → Follow-up loop.
+  - Added microphone transcription preview in Tutor workspace.
+  - Added audio playback triggers via `synthesizeTTS`.
+  - Added interactive Follow-up inquiry component appending context back to the AI tutor.
+
+- [x] **Curriculum RAG Grounding Module**:
+  - Created modular `CurriculumRAGService` in `backend/app/services/rag_service.py` architected for dense vector similarity (BAAI/bge-m3) and sparse BM25 retrieval from trusted textbooks (Galvin OS, C/C++ Systems, DSA).
+  - Wired into `AIReasoningAdapter` to append textbook chapter and page citations to the 4-tier cards without blocking basic execution.
+
 - [x] **Verification**:
-  - Frontend TypeScript compile & Vite build passed cleanly (`npm run build`).
-  - Backend automated test suite passed (`pytest tests/ -v`: 4/4 passing).
+  - Frontend TypeScript compile & Vite production build passed (`npm run build`).
+  - Backend API test suite passed (`pytest tests/ -v`: 4/4 passing).
 
 ---
 
 ### 2. Git Status
-- [x] Initialized Git repository on branch `main`.
-- [x] Added remote `origin` (`https://github.com/gorjikushal1596-byte/Kugaya.git`).
-- [x] Committed all fullstack files, Stitch components, and documentation.
-- [x] Pushed successfully to `origin/main`.
+- [x] Remote `origin` linked: `https://github.com/gorjikushal1596-byte/Kugaya.git`.
+- [x] Previous commits pushed to `main`.
+- [x] All new architecture refactorings ready to commit and push.

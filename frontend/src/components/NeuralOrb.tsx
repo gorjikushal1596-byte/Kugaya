@@ -63,3 +63,4 @@ export const NeuralOrb: React.FC<NeuralOrbProps> = ({ isListening, isSpeaking, o
     </div>
   );
 };
+
