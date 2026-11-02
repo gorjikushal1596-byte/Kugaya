@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 import datetime
 
@@ -17,14 +17,41 @@ class ExplanationCards(BaseModel):
     comprehension_check: Optional[str] = None
     curriculum_sources: Optional[List[CurriculumGroundingSource]] = None
 
-class QueryRequest(BaseModel):
+class MessageItem(BaseModel):
+    id: str
+    role: str # user | assistant
     query: str
+    explanation: Optional[ExplanationCards] = None
+    created_at: datetime.datetime
+
+class ConversationSummary(BaseModel):
+    id: str
+    title: str
+    topic: str
+    language: str
+    message_count: int
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+
+class ConversationDetail(BaseModel):
+    id: str
+    title: str
+    topic: str
+    language: str
+    dialect: str
+    messages: List[MessageItem]
+    created_at: datetime.datetime
+
+class TutorInquiryRequest(BaseModel):
+    query: str
+    conversation_id: Optional[str] = None
     language: Optional[str] = "Telugu"
     dialect: Optional[str] = "Andhra & Telangana"
-    topic: Optional[str] = "General"
+    topic: Optional[str] = "Computer Science"
 
-class QueryResponse(BaseModel):
-    session_id: str
+class TutorInquiryResponse(BaseModel):
+    conversation_id: str
+    message_id: str
     topic: str
     language: str
     query: str
@@ -41,7 +68,7 @@ class STTResponse(BaseModel):
 
 class TTSRequest(BaseModel):
     text: str
-    language: Optional[str] = "te" # te, hi, ta, kn, ml, en
+    language: Optional[str] = "te"
     voice_gender: Optional[str] = "female"
     speed: Optional[float] = 1.0
 

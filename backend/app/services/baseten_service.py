@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import time
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import httpx
 
 from app.config import settings
@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 
 class BasetenMuseSparkClient:
     """
-    Dedicated OpenAI-compatible client for Meta Muse Spark Open deployed on Baseten.
-    - Base URL: https://inference.baseten.co/v1 (or custom model endpoint)
-    - Model: meta-models/muse-spark-open
-    - Supports bounded retries, timeout enforcement, rate-limit resilience,
-      CoT reasoning token budget allocation, and robust JSON extraction.
+    Production client for Meta Muse Spark Open on Baseten.
+    - Handles prompt formatting with multi-turn conversation memory.
+    - Allocates internal reasoning CoT budget (max_tokens: 3072).
+    - Robust JSON extractor handling raw JSON, markdown-wrapped JSON, and conversational fallbacks.
+    - Rate limit backoff and bounded retries.
     """
 
     def __init__(self):
@@ -30,45 +30,52 @@ class BasetenMuseSparkClient:
     def is_configured(self) -> bool:
         return bool(self.api_key and self.api_key.strip() not in ("", "your_baseten_api_key_here"))
 
-    async def complete_tutor_inquiry(
+    async def generate_tutor_response(
         self,
         query: str,
         language: str = "Telugu",
         dialect: str = "Andhra & Telangana",
+        history_context: Optional[List[Dict[str, str]]] = None,
         curriculum_context: Optional[List[CurriculumGroundingSource]] = None
     ) -> ExplanationCards:
         """
-        Sends the student inquiry and pedagogical context to Muse Spark Open on Baseten.
+        Sends the inquiry along with multi-turn chat history to Meta Muse Spark Open.
         """
         if not self.is_configured():
-            logger.warning("Baseten API key is not configured; using offline fallback.")
+            logger.warning("Baseten API key is not configured; generating offline pedagogical fallback.")
             return self._generate_fallback(query, language, curriculum_context)
 
-        # Assemble user prompt with student language and optional curriculum context
-        user_message_parts = [
-            f"STUDENT QUERY: {query}",
-            f"LEARNER BASE LANGUAGE: {language}",
+        messages = [{"role": "system", "content": KUGAYA_PEDAGOGICAL_SYSTEM_PROMPT}]
+
+        # Inject conversation history context (limiting to last 4 exchanges to protect context window)
+        if history_context:
+            for item in history_context[-6:]:
+                role = item.get("role", "user")
+                content = item.get("content", "")
+                if content:
+                    messages.append({"role": role, "content": content})
+
+        # Assemble current user prompt
+        user_parts = [
+            f"STUDENT INQUIRY: {query}",
+            f"STUDENT PREFERRED BASE LANGUAGE: {language}",
             f"REGIONAL DIALECT: {dialect}",
         ]
 
         if curriculum_context:
-            user_message_parts.append("\nVERIFIED CURRICULUM GROUNDING (TEXTBOOK EXCERPTS):")
+            user_parts.append("\nVERIFIED CURRICULUM GROUNDING (TEXTBOOK EXCERPTS):")
             for idx, src in enumerate(curriculum_context, 1):
-                user_message_parts.append(
+                user_parts.append(
                     f"[{idx}] Source: {src.document_title} | {src.chapter} (p. {src.page_number or 'N/A'})\n"
                     f"Excerpt: {src.excerpt}"
                 )
 
-        user_content = "\n".join(user_message_parts)
+        messages.append({"role": "user", "content": "\n".join(user_parts)})
 
-        # Muse Spark Open uses internal reasoning tokens, so allocate ample max_tokens (3072)
         payload = {
             "model": self.model_id,
-            "messages": [
-                {"role": "system", "content": KUGAYA_PEDAGOGICAL_SYSTEM_PROMPT},
-                {"role": "user", "content": user_content}
-            ],
-            "temperature": 0.4,
+            "messages": messages,
+            "temperature": 0.35,
             "max_tokens": 3072
         }
 
@@ -88,7 +95,7 @@ class BasetenMuseSparkClient:
                     
                     if resp.status_code == 429:
                         backoff = 2 ** attempt
-                        logger.warning(f"Baseten rate limit hit (429). Backing off {backoff}s...")
+                        logger.warning(f"Baseten rate limit hit (429). Retrying in {backoff}s...")
                         time.sleep(backoff)
                         continue
 
@@ -97,27 +104,72 @@ class BasetenMuseSparkClient:
                     message_obj = data["choices"][0]["message"]
                     raw_content = message_obj.get("content") or ""
                     
-                    # Extract JSON object even if enclosed in markdown code fences
-                    json_match = re.search(r'\{.*\}', raw_content, re.DOTALL)
-                    if json_match:
-                        raw_json = json_match.group(0)
-                        parsed = json.loads(raw_json)
+                    # Extract JSON object even if enclosed in markdown code fences or conversational text
+                    parsed = self._extract_json(raw_content)
+                    if parsed:
+                        return ExplanationCards(
+                            simple_explanation=parsed.get("simple_explanation", ""),
+                            real_life_analogy=parsed.get("real_life_analogy", ""),
+                            technical_terms=parsed.get("technical_terms", []),
+                            exam_ready_answer=parsed.get("exam_ready_answer", ""),
+                            comprehension_check=parsed.get("comprehension_check"),
+                            curriculum_sources=curriculum_context
+                        )
                     else:
-                        parsed = json.loads(raw_content)
+                        logger.warning(f"Failed to parse JSON from Muse Spark Open output. Raw: {raw_content[:200]}")
+                        return self._wrap_plain_text(raw_content, language, curriculum_context)
 
-                    return ExplanationCards(
-                        simple_explanation=parsed.get("simple_explanation", ""),
-                        real_life_analogy=parsed.get("real_life_analogy", ""),
-                        technical_terms=parsed.get("technical_terms", []),
-                        exam_ready_answer=parsed.get("exam_ready_answer", ""),
-                        comprehension_check=parsed.get("comprehension_check"),
-                        curriculum_sources=curriculum_context
-                    )
             except Exception as e:
-                logger.error(f"Baseten call attempt {attempt}/{self.max_retries} error: {e}")
+                logger.error(f"Baseten call attempt {attempt}/{self.max_retries} failed: {e}")
 
-        logger.error(f"All {self.max_retries} attempts to call Baseten Muse Spark Open failed. Using fallback.")
+        logger.error(f"All {self.max_retries} attempts failed. Returning offline fallback.")
         return self._generate_fallback(query, language, curriculum_context)
+
+    def _extract_json(self, text: str) -> Optional[Dict[str, Any]]:
+        """
+        Attempts direct parsing, regex curly bracket extraction, and markdown block extraction.
+        """
+        text = text.strip()
+        try:
+            return json.loads(text)
+        except Exception:
+            pass
+
+        # Search for ```json ... ``` code fence
+        fence_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
+        if fence_match:
+            try:
+                return json.loads(fence_match.group(1))
+            except Exception:
+                pass
+
+        # Search for widest { ... } block
+        curly_match = re.search(r'(\{.*\})', text, re.DOTALL)
+        if curly_match:
+            try:
+                return json.loads(curly_match.group(1))
+            except Exception:
+                pass
+
+        return None
+
+    def _wrap_plain_text(
+        self,
+        text: str,
+        language: str,
+        curriculum_context: Optional[List[CurriculumGroundingSource]]
+    ) -> ExplanationCards:
+        """
+        Fallback formatting if the LLM provided text without strict JSON markers.
+        """
+        return ExplanationCards(
+            simple_explanation=text,
+            real_life_analogy="This concept helps simplify structural engineering and modular programming in your software systems.",
+            technical_terms=["Core Concept - Fundamental mechanism", "Application - Practical use in production"],
+            exam_ready_answer=f"Technical computational principle applied across modern systems ({language} context).",
+            comprehension_check="How would you apply this concept in a live application?",
+            curriculum_sources=curriculum_context
+        )
 
     def _generate_fallback(
         self,
@@ -141,17 +193,17 @@ class BasetenMuseSparkClient:
                 curriculum_sources=curriculum_context
             )
 
-        if "recursion" in q_lower or "stack" in q_lower:
+        if "binary search" in q_lower:
             return ExplanationCards(
-                simple_explanation="Recursion ante oka function tana sontha function ni malli malli call cheskovadam. Problem ni chinnachinna sub-problems ga split chesi solve chesthundi. Base condition compulsory undali!",
-                real_life_analogy="Oka Russian Matryoshka doll laantidi! Pedda doll open cheste lopaliki inkoka chinnadi, malli adi open cheste inkoti... aakhari smallest doll (base condition) varaku open chestam.",
+                simple_explanation="Binary Search anedhi sorted elements lo oka item ni vethakadaniki use chese fastest divide-and-conquer algorithm. Prathi step lo search space ni sagam chesthundi.",
+                real_life_analogy="Meeru dictionary lo 'Kugaya' ane word vethukuthunnaru anukondi. First book exact center open chestharu. Page 'M' vachindi kabatti left half lo chustaru, right half antha direct ga discard chestaru!",
                 technical_terms=[
-                    "Base Condition - Halting criterion to prevent infinite recursion",
-                    "Call Stack Overhead - Memory frames pushed per recursive call",
-                    "Stack Overflow Exception - Exceeding call stack memory limits"
+                    "Divide-and-Conquer - Splitting search interval in half each iteration",
+                    "Time Complexity O(log n) - Logarithmic search scaling",
+                    "Pre-condition - Input array must be strictly sorted"
                 ],
-                exam_ready_answer="Recursion is a computational method where the solution to a problem depends on solutions to smaller instances of the same problem. A recursive function consists of a base case and a recursive case.",
-                comprehension_check="Without a base condition, what runtime error occurs in recursive code? (A) Memory Leak (B) StackOverflowError (C) Syntax Error",
+                exam_ready_answer="Binary Search is an efficient interval-halving algorithm with O(log n) time complexity that operates on sorted datasets by repeatedly comparing the target value to the middle element.",
+                comprehension_check="What is the time complexity of Binary Search? (A) O(n) (B) O(log n) (C) O(n^2)",
                 curriculum_sources=curriculum_context
             )
 

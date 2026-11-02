@@ -25,22 +25,43 @@ export interface ExplanationCards {
   curriculum_sources?: CurriculumGroundingSource[];
 }
 
-export interface FollowUpItem {
-  id: string;
-  query: string;
-  timestamp: string;
-}
-
-export interface LearningSessionResponse {
-  session_id: string;
+export interface TutorInquiryResponse {
+  conversation_id: string;
+  message_id: string;
   topic: string;
   language: string;
-  dialect?: string;
   query: string;
   explanation: ExplanationCards;
   provider?: string;
   latency_ms?: number;
-  follow_ups?: FollowUpItem[];
+  created_at: string;
+}
+
+export interface MessageItem {
+  id: string;
+  role: 'user' | 'assistant';
+  query: string;
+  explanation?: ExplanationCards;
+  created_at: string;
+}
+
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  topic: string;
+  language: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationDetail {
+  id: string;
+  title: string;
+  topic: string;
+  language: string;
+  dialect: string;
+  messages: MessageItem[];
   created_at: string;
 }
 
@@ -63,10 +84,4 @@ export interface TTSResponse {
   audio_base64: string;
   duration_seconds: number;
   is_mock: boolean;
-}
-
-export interface AppErrorState {
-  code: string;
-  message: string;
-  retryAction?: () => void;
 }

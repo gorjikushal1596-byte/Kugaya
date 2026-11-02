@@ -1,18 +1,20 @@
 import uuid
 import datetime
-import json
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import get_db
-from app.models import User, LearningSession, SavedLesson
+from app.models import User, SavedLesson
 from app.schemas import (
-    QueryRequest, QueryResponse, STTResponse, TTSRequest, TTSResponse,
-    UserProfileUpdate, UserProfileResponse, SavedLessonItem, ExplanationCards
+    TutorInquiryRequest, TutorInquiryResponse,
+    ConversationSummary, ConversationDetail,
+    STTResponse, TTSRequest, TTSResponse,
+    UserProfileUpdate, UserProfileResponse, SavedLessonItem
 )
 from app.services.speech_service import gnani_adapter
-from app.services.ai_reasoning_service import ai_reasoning_adapter
+from app.services.reasoning_service import reasoning_service
+from app.services.conversation_service import conversation_service
 
 router = APIRouter()
 
@@ -27,7 +29,7 @@ async def get_user_profile(db: AsyncSession = Depends(get_db)):
         base_language=user.base_language,
         dialect=user.dialect,
         speaking_mode=user.speaking_mode,
-        streak_days=4,
+        streak_days=user.streak_days if hasattr(user, 'streak_days') else 4,
         points=1250
     )
 
@@ -58,43 +60,43 @@ async def update_user_profile(payload: UserProfileUpdate, db: AsyncSession = Dep
         points=1250
     )
 
-@router.post("/tutor/query", response_model=QueryResponse)
-async def submit_query(req: QueryRequest, db: AsyncSession = Depends(get_db)):
-    # 1. Generate multi-card explanation with provider metrics
-    explanation, provider_tag, latency_ms = await ai_reasoning_adapter.generate_explanation(
+# Core AI Tutor Reasoning Endpoint
+@router.post("/tutor/query", response_model=TutorInquiryResponse)
+async def submit_query(req: TutorInquiryRequest, db: AsyncSession = Depends(get_db)):
+    explanation, conv_id, msg_id, latency_ms = await reasoning_service.answer_student_inquiry(
+        db=db,
         query=req.query,
+        conversation_id=req.conversation_id,
         language=req.language or "Telugu",
-        dialect=req.dialect or "Andhra & Telangana"
+        dialect=req.dialect or "Andhra & Telangana",
+        topic=req.topic or "Computer Science"
     )
-    
-    # 2. Persist session
-    session_id = f"sess_{uuid.uuid4().hex[:8]}"
-    db_session = LearningSession(
-        id=session_id,
-        user_id="user_default",
-        topic=req.topic or "Computer Science",
-        prompt_query=req.query,
-        language=req.language or "Telugu",
-        session_type="text",
-        simple_explanation=explanation.simple_explanation,
-        real_life_analogy=explanation.real_life_analogy,
-        technical_terms=json.dumps(explanation.technical_terms),
-        exam_ready_answer=explanation.exam_ready_answer
-    )
-    db.add(db_session)
-    await db.commit()
-    
-    return QueryResponse(
-        session_id=session_id,
+
+    return TutorInquiryResponse(
+        conversation_id=conv_id,
+        message_id=msg_id,
         topic=req.topic or "Computer Science",
         language=req.language or "Telugu",
         query=req.query,
         explanation=explanation,
-        provider=provider_tag,
+        provider="baseten/muse-spark-open",
         latency_ms=latency_ms,
         created_at=datetime.datetime.utcnow()
     )
 
+# Conversation Management Endpoints
+@router.get("/conversations", response_model=list[ConversationSummary])
+async def list_conversations(db: AsyncSession = Depends(get_db)):
+    return await conversation_service.list_conversations(db=db, user_id="user_default")
+
+@router.get("/conversations/{conversation_id}", response_model=ConversationDetail)
+async def get_conversation(conversation_id: str, db: AsyncSession = Depends(get_db)):
+    conv = await conversation_service.get_conversation_detail(db=db, conversation_id=conversation_id)
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return conv
+
+# Voice STT & TTS Endpoints
 @router.post("/voice/stt", response_model=STTResponse)
 async def speech_to_text(
     audio: UploadFile = File(...),
@@ -113,36 +115,7 @@ async def text_to_speech(req: TTSRequest):
     )
     return tts_res
 
-@router.get("/history", response_model=list[QueryResponse])
-async def get_learning_history(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(LearningSession).order_by(LearningSession.created_at.desc()).limit(20)
-    )
-    sessions = result.scalars().all()
-    
-    output = []
-    for s in sessions:
-        terms = []
-        try:
-            terms = json.loads(s.technical_terms) if s.technical_terms else []
-        except Exception:
-            terms = []
-            
-        output.append(QueryResponse(
-            session_id=s.id,
-            topic=s.topic or "Topic",
-            language=s.language or "Telugu",
-            query=s.prompt_query,
-            explanation=ExplanationCards(
-                simple_explanation=s.simple_explanation or "",
-                real_life_analogy=s.real_life_analogy or "",
-                technical_terms=terms,
-                exam_ready_answer=s.exam_ready_answer or ""
-            ),
-            created_at=s.created_at
-        ))
-    return output
-
+# Saved Lessons Endpoints
 @router.get("/saved", response_model=list[SavedLessonItem])
 async def get_saved_lessons(db: AsyncSession = Depends(get_db)):
     result = await db.execute(
@@ -150,7 +123,6 @@ async def get_saved_lessons(db: AsyncSession = Depends(get_db)):
     )
     lessons = result.scalars().all()
     
-    # If empty, provide high-yield seed lessons
     if not lessons:
         return [
             SavedLessonItem(
@@ -191,4 +163,3 @@ async def save_lesson(item: SavedLessonItem, db: AsyncSession = Depends(get_db))
     db.add(new_l)
     await db.commit()
     return {"status": "success", "id": new_l.id}
-

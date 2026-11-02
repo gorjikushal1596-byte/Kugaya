@@ -14,27 +14,44 @@ class User(Base):
     speaking_mode = Column(String, default="bilingual")  # bilingual | immersion
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     
-    sessions = relationship("LearningSession", back_populates="user", cascade="all, delete-orphan")
+    conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
     saved_lessons = relationship("SavedLesson", back_populates="user", cascade="all, delete-orphan")
 
-class LearningSession(Base):
-    __tablename__ = "learning_sessions"
-    
+class Conversation(Base):
+    __tablename__ = "conversations"
+
     id = Column(String, primary_key=True, index=True)
     user_id = Column(String, ForeignKey("users.id"))
-    topic = Column(String)
-    prompt_query = Column(Text)
+    title = Column(String, default="New Conversation")
+    topic = Column(String, default="Computer Science")
     language = Column(String, default="Telugu")
-    session_type = Column(String, default="text") # text | voice
+    dialect = Column(String, default="Andhra & Telangana")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    
-    # 4-Card Multi-modal Explanation model
-    simple_explanation = Column(Text)
-    real_life_analogy = Column(Text)
-    technical_terms = Column(Text)
-    exam_ready_answer = Column(Text)
-    
-    user = relationship("User", back_populates="sessions")
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    user = relationship("User", back_populates="conversations")
+    messages = relationship("ConversationMessage", back_populates="conversation", cascade="all, delete-orphan", order_by="ConversationMessage.created_at")
+
+class ConversationMessage(Base):
+    __tablename__ = "conversation_messages"
+
+    id = Column(String, primary_key=True, index=True)
+    conversation_id = Column(String, ForeignKey("conversations.id"))
+    role = Column(String)  # 'user' | 'assistant'
+    query = Column(Text)
+    language = Column(String, default="Telugu")
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    # 5-Tier Structured Explanation (Assistant only)
+    simple_explanation = Column(Text, nullable=True)
+    real_life_analogy = Column(Text, nullable=True)
+    technical_terms = Column(Text, nullable=True)  # JSON-serialized list
+    exam_ready_answer = Column(Text, nullable=True)
+    comprehension_check = Column(Text, nullable=True)
+    raw_response = Column(Text, nullable=True)
+    latency_ms = Column(Integer, nullable=True)
+
+    conversation = relationship("Conversation", back_populates="messages")
 
 class SavedLesson(Base):
     __tablename__ = "saved_lessons"
@@ -48,4 +65,3 @@ class SavedLesson(Base):
     saved_at = Column(DateTime, default=datetime.datetime.utcnow)
     
     user = relationship("User", back_populates="saved_lessons")
-

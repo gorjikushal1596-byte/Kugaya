@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useUser } from '../contexts/UserContext';
-import type { LearningSessionResponse } from '../types';
+import type { TutorInquiryResponse } from '../types';
 import { NeuralOrb } from '../components/NeuralOrb';
-import { transcribeAudio, sendQuery, synthesizeTTS } from '../services/api';
+import { transcribeAudio, sendTutorQuery, synthesizeTTS } from '../services/api';
 import { ExplanationStream } from '../components/ExplanationStream';
 
 export const VoiceScreen: React.FC = () => {
@@ -10,7 +10,7 @@ export const VoiceScreen: React.FC = () => {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [liveTranscription, setLiveTranscription] = useState('');
-  const [activeSession, setActiveSession] = useState<LearningSessionResponse | null>(null);
+  const [activeSession, setActiveSession] = useState<TutorInquiryResponse | null>(null);
 
   const handleToggleVoice = async () => {
     if (isListening) {
@@ -22,19 +22,20 @@ export const VoiceScreen: React.FC = () => {
       setIsListening(true);
       setLiveTranscription(`Listening for your speech in ${user.base_language}...`);
 
-      // Mock audio blob sent to Gnani Prisma STT adapter
+      // Audio blob sent to Gnani Prisma STT adapter
       const dummyBlob = new Blob(['sample-pcm-data'], { type: 'audio/wav' });
       const sttResult = await transcribeAudio(dummyBlob, user.base_language.toLowerCase().slice(0, 2));
 
       setLiveTranscription(sttResult.transcription);
       setIsListening(false);
 
-      // Auto-query the AI reasoning service with transcription
+      // Auto-query Meta Muse Spark Open with transcription
       setIsSpeaking(true);
-      const queryRes = await sendQuery(
+      const queryRes = await sendTutorQuery(
         sttResult.transcription,
         user.base_language,
         user.dialect,
+        activeSession?.conversation_id,
         'Voice Session'
       );
       setActiveSession(queryRes);
@@ -64,7 +65,7 @@ export const VoiceScreen: React.FC = () => {
         <div>
           <h2 className="text-xl font-bold text-on-surface">Voice Tutor Session</h2>
           <p className="text-xs text-on-surface-variant">
-            Powered by Gnani AI Prisma v2.5 (STT) & Timbre v2.5 (TTS)
+            Powered by Gnani AI Prisma v2.5 (STT) & Timbre v2.5 (TTS) + Muse Spark Open
           </p>
         </div>
         <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-high border border-primary-container/20 text-xs text-primary font-semibold">
@@ -98,14 +99,22 @@ export const VoiceScreen: React.FC = () => {
         <div className="space-y-4">
           <div className="text-xs font-semibold text-primary px-1 flex items-center gap-1">
             <span className="material-symbols-outlined text-sm">neurology</span>
-            <span>Synthesized 4-Card Multi-modal Explanation</span>
+            <span>Synthesized 5-Card Multi-modal Explanation</span>
           </div>
           <ExplanationStream
             query={activeSession.query}
             explanation={activeSession.explanation}
             language={activeSession.language}
+            provider={activeSession.provider}
+            latencyMs={activeSession.latency_ms}
             onAskFollowUp={(followUp) => {
-              sendQuery(followUp, user.base_language, user.dialect, 'Voice Follow-up').then(setActiveSession);
+              sendTutorQuery(
+                followUp,
+                user.base_language,
+                user.dialect,
+                activeSession.conversation_id,
+                'Voice Follow-up'
+              ).then(setActiveSession);
             }}
           />
         </div>
@@ -113,4 +122,3 @@ export const VoiceScreen: React.FC = () => {
     </div>
   );
 };
-

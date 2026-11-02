@@ -1,19 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
-import type { LearningSessionResponse } from '../types';
-import { sendQuery, transcribeAudio } from '../services/api';
+import type { TutorInquiryResponse, MessageItem } from '../types';
+import { sendTutorQuery, transcribeAudio } from '../services/api';
 import { ExplanationStream } from '../components/ExplanationStream';
 
 export const TutorScreen: React.FC = () => {
   const { user } = useUser();
   const location = useLocation();
+
   const [queryInput, setQueryInput] = useState('');
-  const [activeSession, setActiveSession] = useState<LearningSessionResponse | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<MessageItem[]>([]);
+  const [latestResponse, setLatestResponse] = useState<TutorInquiryResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Audio recording state for microphone inside tutor screen
+  // Microphone recording simulation & speech-to-text preview
   const [isRecording, setIsRecording] = useState(false);
   const [transcriptionPreview, setTranscriptionPreview] = useState<string | null>(null);
 
@@ -21,27 +24,52 @@ export const TutorScreen: React.FC = () => {
     if (location.state && (location.state as { initialQuery?: string }).initialQuery) {
       const q = (location.state as { initialQuery: string }).initialQuery;
       setQueryInput(q);
-      executeExplanation(q);
+      executeExplanation(q, null);
     }
   }, [location.state]);
 
-  const executeExplanation = async (queryString: string) => {
+  const executeExplanation = async (queryString: string, convId: string | null = conversationId) => {
     if (!queryString.trim() || isLoading) return;
 
     try {
       setIsLoading(true);
       setErrorMessage(null);
-      const res = await sendQuery(
+
+      // Append user inquiry message immediately
+      const userMsg: MessageItem = {
+        id: `local_${Date.now()}`,
+        role: 'user',
+        query: queryString.trim(),
+        created_at: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, userMsg]);
+
+      // Call FastAPI Baseten reasoning engine
+      const res = await sendTutorQuery(
         queryString.trim(),
         user.base_language,
         user.dialect,
+        convId || undefined,
         'Computer Science'
       );
-      setActiveSession(res);
+
+      setConversationId(res.conversation_id);
+      setLatestResponse(res);
+
+      // Append assistant explanation message
+      const asstMsg: MessageItem = {
+        id: res.message_id,
+        role: 'assistant',
+        query: queryString.trim(),
+        explanation: res.explanation,
+        created_at: res.created_at,
+      };
+      setMessages((prev) => [...prev, asstMsg]);
       setTranscriptionPreview(null);
+      setQueryInput('');
     } catch (err: unknown) {
       console.error(err);
-      setErrorMessage('Could not generate explanation. Check your network or backend service.');
+      setErrorMessage('Could not complete inquiry with Baseten Meta Muse Spark Open. Please retry.');
     } finally {
       setIsLoading(false);
     }
@@ -52,6 +80,14 @@ export const TutorScreen: React.FC = () => {
     executeExplanation(queryInput);
   };
 
+  const handleStartNewConversation = () => {
+    setConversationId(null);
+    setMessages([]);
+    setLatestResponse(null);
+    setQueryInput('');
+    setErrorMessage(null);
+  };
+
   const handleMicrophoneInput = async () => {
     if (isRecording) {
       setIsRecording(false);
@@ -60,25 +96,23 @@ export const TutorScreen: React.FC = () => {
 
     try {
       setIsRecording(true);
-      setTranscriptionPreview('Listening to microphone (Gnani Prisma STT)...');
-      
-      // Send audio blob to STT adapter
+      setTranscriptionPreview(`Listening via Gnani Prisma (${user.base_language})...`);
+
       const dummyBlob = new Blob(['sample-pcm-data'], { type: 'audio/wav' });
       const stt = await transcribeAudio(dummyBlob, user.base_language.toLowerCase().slice(0, 2));
-      
+
       setTranscriptionPreview(stt.transcription);
       setQueryInput(stt.transcription);
     } catch (err) {
       console.error(err);
-      setTranscriptionPreview('Microphone transcription failed. Please try typing instead.');
+      setTranscriptionPreview('Voice transcription failed. You can type your query directly.');
     } finally {
       setIsRecording(false);
     }
   };
 
   const handleFollowUp = (followUpText: string) => {
-    const combinedQuery = `${activeSession?.query || ''} -> Follow up: ${followUpText}`;
-    executeExplanation(combinedQuery);
+    executeExplanation(followUpText, conversationId);
   };
 
   const sampleSuggestions = [
@@ -90,17 +124,28 @@ export const TutorScreen: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-6">
-      {/* Active Topic Banner */}
+      {/* Active Workspace Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-on-surface">AI Tutor Workspace</h2>
           <p className="text-xs text-on-surface-variant">
-            Grounded conceptual explanations in {user.base_language} + English
+            Powered by Meta Muse Spark Open via Baseten in {user.base_language} + English
           </p>
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-high border border-primary-container/20 text-xs text-primary font-semibold">
-          <span className="material-symbols-outlined text-sm">psychology</span>
-          <span>Adaptive 4-Tier</span>
+        <div className="flex items-center gap-2">
+          {conversationId && (
+            <button
+              onClick={handleStartNewConversation}
+              className="px-2.5 py-1 rounded-full bg-surface-container-high hover:bg-surface-container-highest border border-surface-container-highest text-[11px] text-on-surface-variant hover:text-primary transition-all flex items-center gap-1"
+            >
+              <span className="material-symbols-outlined text-sm">add</span>
+              <span>New Thread</span>
+            </button>
+          )}
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-high border border-primary-container/20 text-xs text-primary font-semibold">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+            <span>Live Muse Spark</span>
+          </div>
         </div>
       </div>
 
@@ -112,7 +157,7 @@ export const TutorScreen: React.FC = () => {
               rows={3}
               value={queryInput}
               onChange={(e) => setQueryInput(e.target.value)}
-              placeholder={`Ask any concept in ${user.base_language} or English... (e.g. "What is pointer dereferencing in C++?")`}
+              placeholder={`Ask any university or technical question in ${user.base_language} or English... (e.g. "Explain binary search with everyday analogy")`}
               className="w-full p-3.5 pr-12 rounded-2xl bg-surface-container-high border border-surface-container-highest text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container resize-none"
             />
             {/* Inline Mic Trigger */}
@@ -134,13 +179,18 @@ export const TutorScreen: React.FC = () => {
           {transcriptionPreview && (
             <div className="p-2.5 rounded-xl bg-surface-container-high/80 border border-primary-container/30 flex items-center justify-between text-xs text-on-surface">
               <span className="truncate italic">STT: "{transcriptionPreview}"</span>
-              <span className="text-[10px] text-primary shrink-0 ml-2 font-semibold">Preview / Editable above</span>
+              <span className="text-[10px] text-primary shrink-0 ml-2 font-semibold">
+                Preview / Editable
+              </span>
             </div>
           )}
 
           <div className="flex items-center justify-between">
             <div className="text-[11px] text-on-surface-variant">
-              Target Mode: <span className="text-primary font-semibold">{user.base_language} + English</span>
+              Tutor Delivery:{' '}
+              <span className="text-primary font-semibold">
+                {user.base_language} + English Code-mixed
+              </span>
             </div>
             <button
               type="submit"
@@ -150,7 +200,7 @@ export const TutorScreen: React.FC = () => {
               {isLoading ? (
                 <>
                   <span className="material-symbols-outlined text-sm animate-spin">sync</span>
-                  <span>Reasoning...</span>
+                  <span>Reasoning (Muse Spark)...</span>
                 </>
               ) : (
                 <>
@@ -194,31 +244,42 @@ export const TutorScreen: React.FC = () => {
         </div>
       )}
 
-      {/* Explanation Stream */}
-      {activeSession ? (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between text-xs text-on-surface-variant px-1">
-            <span>Generated Breakdown</span>
-            <span>{new Date(activeSession.created_at).toLocaleTimeString()}</span>
-          </div>
-          <ExplanationStream
-            query={activeSession.query}
-            explanation={activeSession.explanation}
-            language={activeSession.language}
-            provider={activeSession.provider}
-            latencyMs={activeSession.latency_ms}
-            onAskFollowUp={handleFollowUp}
-          />
+      {/* Conversation Thread / Message Stream */}
+      {messages.length > 0 ? (
+        <div className="space-y-6">
+          {messages.map((m) => {
+            if (m.role === 'assistant' && m.explanation) {
+              return (
+                <div key={m.id} className="space-y-4">
+                  <div className="flex items-center justify-between text-xs text-on-surface-variant px-1">
+                    <span className="font-semibold text-primary">Kugaya Explanation</span>
+                    <span>{new Date(m.created_at).toLocaleTimeString()}</span>
+                  </div>
+                  <ExplanationStream
+                    query={m.query}
+                    explanation={m.explanation}
+                    language={user.base_language}
+                    provider={latestResponse?.provider || 'baseten/muse-spark-open'}
+                    latencyMs={latestResponse?.latency_ms}
+                    onAskFollowUp={handleFollowUp}
+                  />
+                </div>
+              );
+            }
+            return null;
+          })}
         </div>
       ) : (
         !isLoading && (
           <div className="p-8 rounded-3xl border border-dashed border-surface-container-highest text-center space-y-2 text-on-surface-variant">
             <span className="material-symbols-outlined text-3xl text-outline">menu_book</span>
-            <p className="text-sm">Submit any question above to generate your 4-Card Multi-modal Explanation.</p>
+            <p className="text-sm">
+              Submit any question above to generate your 5-Card Multi-modal Explanation from Meta Muse
+              Spark Open.
+            </p>
           </div>
         )
       )}
     </div>
   );
 };
-

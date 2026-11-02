@@ -1,4 +1,12 @@
-import type { UserProfile, LearningSessionResponse, SavedLessonItem, STTResponse, TTSResponse } from '../types';
+import type {
+  UserProfile,
+  TutorInquiryResponse,
+  ConversationSummary,
+  ConversationDetail,
+  SavedLessonItem,
+  STTResponse,
+  TTSResponse,
+} from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -18,19 +26,37 @@ export async function updateProfile(data: Partial<UserProfile>): Promise<UserPro
   return res.json();
 }
 
-export async function sendQuery(query: string, language: string, dialect: string, topic?: string): Promise<LearningSessionResponse> {
+export async function sendTutorQuery(
+  query: string,
+  language: string,
+  dialect: string,
+  conversationId?: string,
+  topic?: string
+): Promise<TutorInquiryResponse> {
   const res = await fetch(`${API_BASE}/tutor/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, language, dialect, topic: topic || 'Computer Science' }),
+    body: JSON.stringify({
+      query,
+      language,
+      dialect,
+      conversation_id: conversationId,
+      topic: topic || 'Computer Science',
+    }),
   });
-  if (!res.ok) throw new Error('Failed to generate explanation');
+  if (!res.ok) throw new Error('Failed to generate tutor explanation');
   return res.json();
 }
 
-export async function fetchHistory(): Promise<LearningSessionResponse[]> {
-  const res = await fetch(`${API_BASE}/history`);
-  if (!res.ok) throw new Error('Failed to fetch history');
+export async function fetchConversations(): Promise<ConversationSummary[]> {
+  const res = await fetch(`${API_BASE}/conversations`);
+  if (!res.ok) throw new Error('Failed to fetch conversations');
+  return res.json();
+}
+
+export async function fetchConversationDetail(conversationId: string): Promise<ConversationDetail> {
+  const res = await fetch(`${API_BASE}/conversations/${conversationId}`);
+  if (!res.ok) throw new Error('Failed to fetch conversation detail');
   return res.json();
 }
 
@@ -40,7 +66,9 @@ export async function fetchSavedLessons(): Promise<SavedLessonItem[]> {
   return res.json();
 }
 
-export async function saveLesson(item: Omit<SavedLessonItem, 'id' | 'saved_at'>): Promise<{ status: string; id: string }> {
+export async function saveLesson(
+  item: Omit<SavedLessonItem, 'id' | 'saved_at'>
+): Promise<{ status: string; id: string }> {
   const res = await fetch(`${API_BASE}/saved`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
