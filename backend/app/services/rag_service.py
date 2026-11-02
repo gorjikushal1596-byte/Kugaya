@@ -110,12 +110,12 @@ class HybridCurriculumRAGService:
         sections = [s.strip() for s in sections if s.strip()]
 
         pages_data = []
-        if len(sections) > 1:
+        if sections and any(re.match(r'(?:Chapter|Unit|Module)\s+\d+', s, re.IGNORECASE) for s in sections):
             for s in sections:
                 lines = s.splitlines()
                 first_line = lines[0].strip() if lines else ""
                 chap_match = re.match(r'(?:Chapter|Unit|Module)\s+\d+[:\s\-\w]+', first_line, re.IGNORECASE)
-                chap_name = chap_match.group(0)[:60] if chap_match else "General"
+                chap_name = chap_match.group(0)[:60] if chap_match else "Curriculum Foundation"
 
                 page_match = re.search(r'Page\s+(\d+)', s, re.IGNORECASE)
                 page_num = int(page_match.group(1)) if page_match else 1

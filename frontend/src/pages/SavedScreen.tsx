@@ -39,7 +39,7 @@ export const SavedScreen: React.FC = () => {
 
   useEffect(() => {
     loadLessons(searchQuery, selectedCategory);
-  }, [selectedCategory]);
+  }, [selectedCategory, searchQuery]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

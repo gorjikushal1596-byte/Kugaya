@@ -37,10 +37,6 @@ export const TutorScreen: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcriptionPreview, setTranscriptionPreview] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadCurriculumDocs();
-  }, []);
-
   const loadCurriculumDocs = async () => {
     try {
       const docs = await fetchCurriculumDocuments();
@@ -49,25 +45,6 @@ export const TutorScreen: React.FC = () => {
       console.error('Failed to load curriculum documents:', e);
     }
   };
-
-  useEffect(() => {
-    if (location.state) {
-      const stateObj = location.state as { initialQuery?: string; continueConversationId?: string };
-      if (stateObj.initialQuery) {
-        setQueryInput(stateObj.initialQuery);
-        executeExplanation(stateObj.initialQuery, null);
-      } else if (stateObj.continueConversationId) {
-        setConversationId(stateObj.continueConversationId);
-        fetchConversationDetail(stateObj.continueConversationId)
-          .then((detail) => {
-            if (detail && detail.messages) {
-              setMessages(detail.messages);
-            }
-          })
-          .catch(console.error);
-      }
-    }
-  }, [location.state]);
 
   const executeExplanation = async (queryString: string, convId: string | null = conversationId) => {
     if (!queryString.trim() || isLoading) return;
@@ -116,6 +93,29 @@ export const TutorScreen: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadCurriculumDocs();
+  }, []);
+
+  useEffect(() => {
+    if (location.state) {
+      const stateObj = location.state as { initialQuery?: string; continueConversationId?: string };
+      if (stateObj.initialQuery) {
+        setQueryInput(stateObj.initialQuery);
+        executeExplanation(stateObj.initialQuery, null);
+      } else if (stateObj.continueConversationId) {
+        setConversationId(stateObj.continueConversationId);
+        fetchConversationDetail(stateObj.continueConversationId)
+          .then((detail) => {
+            if (detail && detail.messages) {
+              setMessages(detail.messages);
+            }
+          })
+          .catch(console.error);
+      }
+    }
+  }, [location.state]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

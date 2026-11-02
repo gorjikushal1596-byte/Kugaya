@@ -60,7 +60,7 @@ async def test_full_voice_to_reasoning_flow():
     spoken_transcription = "Recursion lo base case lekapothe emavthundi Kugaya?"
     
     async with AsyncSessionLocal() as db:
-        explanation, conv_id, msg_id, latency_ms = await reasoning_service.answer_student_inquiry(
+        explanation, conv_id, msg_id, latency_ms, *_ = await reasoning_service.answer_student_inquiry(
             db=db,
             query=spoken_transcription,
             conversation_id=None,

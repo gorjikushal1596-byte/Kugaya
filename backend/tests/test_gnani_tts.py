@@ -83,7 +83,7 @@ async def test_live_timbre_tts_english():
 async def test_full_pipeline_voice_to_tts():
     query = "Explain mutex in one sentence in Telugu."
     async with AsyncSessionLocal() as db:
-        explanation, conv_id, msg_id, latency_ms = await reasoning_service.answer_student_inquiry(
+        explanation, conv_id, msg_id, latency_ms, *_ = await reasoning_service.answer_student_inquiry(
             db=db,
             query=query,
             conversation_id=None,

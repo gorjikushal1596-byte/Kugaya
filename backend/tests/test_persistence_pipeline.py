@@ -262,3 +262,4 @@ async def test_7_privacy_and_data_purge():
         # Verify profile preferences still remain
         prof = (await client.get("/api/v1/profile")).json()
         assert prof["name"] == "Kushal"
+
