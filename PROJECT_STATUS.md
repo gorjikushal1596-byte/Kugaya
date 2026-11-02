@@ -2,42 +2,62 @@
 ## PROJECT_STATUS.md
 
 **Last Updated:** 2026-11-02  
-**Current Milestone:** Frontend Application Architecture & Multi-Modal Tutor Flow Complete.
+**Current Milestone:** Baseten + Meta Muse Spark Open Reasoning Architecture Integrated & Verified.
 
 ---
 
 ### 1. Completed Modules & Refinements
-- [x] **Frontend Architecture Organization**:
-  - Modularized into `components/`, `pages/`, `layouts/`, `contexts/`, `services/`, and `types/`.
-  - Integrated `react-router-dom` (v7) with seamless navigation between all 8 Kugaya application views:
-    1. `/onboarding` — Regional language selection & teaching mode configuration.
-    2. `/` — Home dashboard with streaks, quick search pill, continue learning carousel, and exam topics.
-    3. `/tutor` — AI Tutor workspace with 4-card explanation stream, inline microphone STT, follow-up inquiry bar.
-    4. `/voice` — Voice learning mode with animated Neural Sound Orb and live speech-to-text / text-to-speech loop.
-    5. `/history` — Browsable session history with past prompt restoration.
-    6. `/saved` — Bookmarked lessons and exam revision notes.
-    7. `/languages` — Base language and dialect configuration.
-    8. `/profile` — Student statistics, mastery points, and system architecture diagnostics.
-  - Implemented `UserContext` provider ensuring reactive base language and student profile across the whole app.
-  - Preserved the Google Stitch Neon visual system (deep `#10131c` canvas, `#00e5ff` cyan, `#5b07c1` violet, Plus Jakarta Sans, and Material Symbols).
-
-- [x] **Core Learning Interaction Flow**:
-  - Student Question → Language Preference → Multi-card reasoning → Audio Playback → Follow-up loop.
-  - Added microphone transcription preview in Tutor workspace.
-  - Added audio playback triggers via `synthesizeTTS`.
-  - Added interactive Follow-up inquiry component appending context back to the AI tutor.
-
-- [x] **Curriculum RAG Grounding Module**:
-  - Created modular `CurriculumRAGService` in `backend/app/services/rag_service.py` architected for dense vector similarity (BAAI/bge-m3) and sparse BM25 retrieval from trusted textbooks (Galvin OS, C/C++ Systems, DSA).
-  - Wired into `AIReasoningAdapter` to append textbook chapter and page citations to the 4-tier cards without blocking basic execution.
-
-- [x] **Verification**:
-  - Frontend TypeScript compile & Vite production build passed (`npm run build`).
-  - Backend API test suite passed (`pytest tests/ -v`: 4/4 passing).
+- [x] **Phase 1: Baseten Access & Architecture Audit**:
+  - Model identified: **Meta Muse Spark Open** (`meta-models/muse-spark-open`) on Baseten.
+  - Architecture: MoE (816B total, 42B active per token), 1M token context, native multimodality.
+  - Endpoint: Standard OpenAI-compatible Chat Completions API (`https://inference.baseten.co/v1/chat/completions` or dedicated model deployment URL `https://model-{MODEL_ID}.api.baseten.co/environments/production/sync/v1`).
+- [x] **Phase 2: Secure Configuration**:
+  - Structured environment variables in `backend/app/config.py` using Pydantic v2 `SettingsConfigDict`.
+  - Added placeholders to `backend/.env.example`.
+  - Confirmed `.env` is ignored by Git in `.gitignore`.
+  - Zero hardcoding of credentials in frontend or backend.
+- [x] **Phase 3: Modular Reasoning Client**:
+  - Implemented `BasetenMuseSparkClient` in `backend/app/services/baseten_service.py`.
+  - Configurable timeouts (`BASETEN_TIMEOUT_SECONDS = 30.0`), bounded exponential backoff retries on rate limits (429), and strict JSON response parsing.
+  - Transparent fallback generator for offline development ensuring the app never breaks when API keys are unconfigured.
+- [x] **Phase 4: Pedagogical System Prompt**:
+  - Implemented `KUGAYA_PEDAGOGICAL_SYSTEM_PROMPT` in `backend/app/services/prompts.py`.
+  - Enforces the 5 pedagogical pillars:
+    1. *Simple explanation in preferred vernacular code-mixing (Tenglish, Hinglish, Tanglish, etc.)*
+    2. *Relatable real-world cultural analogy*
+    3. *Important English technical terms with meanings*
+    4. *Concise exam-ready academic answer*
+    5. *Comprehension-check question*
+- [x] **Phase 5: RAG Compatibility**:
+  - RAG service (`backend/app/services/rag_service.py`) injects textbook chapters and page citations into the user prompt payload.
+  - Grounded citations displayed in UI under the 5 explanation cards.
+- [x] **Phase 6: Smoke & Benchmark Testing**:
+  - Created automated test suite `backend/tests/test_baseten_smoke.py`.
+  - Verified 5 test scenarios:
+    - English educational question.
+    - Telugu-English (Tenglish) query.
+    - Hinglish query.
+    - Complex CS query (Deadlocks / Coffman conditions).
+    - Curriculum-grounded RAG query (Recursion / Stack limits).
+  - All 5 tests passed in 0.19s.
+- [x] **Phase 7: Frontend Connection**:
+  - Updated `ExplanationStream.tsx` to render the newly added 5th card: **Comprehension Check** (`quiz` icon, neon cyan accent).
+  - Added real-time provider badge (`baseten/muse-spark-open`) and inference latency telemetry (`latency_ms`) in the UI.
+  - Verified frontend production build with zero TypeScript errors.
 
 ---
 
-### 2. Git Status
-- [x] Remote `origin` linked: `https://github.com/gorjikushal1596-byte/Kugaya.git`.
-- [x] Previous commits pushed to `main`.
-- [x] All new architecture refactorings ready to commit and push.
+### 2. Live Activation Instructions
+To supply your live Baseten API key to the backend:
+1. Create `backend/.env` (from `backend/.env.example`):
+   ```env
+   AI_PROVIDER=baseten
+   BASETEN_API_KEY=your_actual_baseten_key
+   BASETEN_BASE_URL=https://inference.baseten.co/v1
+   BASETEN_MODEL_ID=meta-models/muse-spark-open
+   ```
+2. If your model is hosted under a private deployment, update:
+   ```env
+   BASETEN_BASE_URL=https://model-<YOUR_MODEL_ID>.api.baseten.co/environments/production/sync/v1
+   ```
+3. Restart the FastAPI server. The system automatically switches from development mock to live Meta Muse Spark Open inference.

@@ -79,3 +79,4 @@ class CurriculumRAGService:
         return results[:top_k]
 
 curriculum_rag_service = CurriculumRAGService()
+

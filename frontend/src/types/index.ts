@@ -21,6 +21,7 @@ export interface ExplanationCards {
   real_life_analogy: string;
   technical_terms: string[];
   exam_ready_answer: string;
+  comprehension_check?: string;
   curriculum_sources?: CurriculumGroundingSource[];
 }
 
@@ -37,6 +38,8 @@ export interface LearningSessionResponse {
   dialect?: string;
   query: string;
   explanation: ExplanationCards;
+  provider?: string;
+  latency_ms?: number;
   follow_ups?: FollowUpItem[];
   created_at: string;
 }

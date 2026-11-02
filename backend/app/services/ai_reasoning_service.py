@@ -1,33 +1,35 @@
 import logging
+import time
 from app.config import settings
 from app.schemas import ExplanationCards, CurriculumGroundingSource
 from app.services.rag_service import curriculum_rag_service
+from app.services.baseten_service import baseten_client
 
 logger = logging.getLogger(__name__)
 
 class AIReasoningAdapter:
     """
-    Kugaya Reasoning Provider Adapter:
-    - Primary candidate: Evon v3.3 (subject to access key)
-    - Fallback: Gemini 1.5/2.5 or local mock generator
-    Generates structured 4-Card Multi-modal Explanation model grounded via Curriculum RAG:
-      1. Simple Explanation (Code-mixed e.g., Tenglish/Hinglish)
-      2. Real-Life Cultural/Relatable Analogy
-      3. Key English Technical Terms
-      4. Exam-Ready Academic Answer
-      + Grounded Textbook Citations
+    Pluggable AI Reasoning Provider Adapter for Kugaya.
+    Routes requests according to settings.AI_PROVIDER:
+    - 'baseten': Meta Muse Spark Open via Baseten Inference API
+    - 'gemini': Google Gemini API
+    - 'evon': Evon API
+    - 'mock': Local deterministic pedagogical generator
     """
 
     def __init__(self):
         self.provider = settings.AI_PROVIDER
-        self.evon_key = settings.EVON_API_KEY
-        self.gemini_key = settings.GEMINI_API_KEY
 
-    async def generate_explanation(self, query: str, language: str = "Telugu", dialect: str = "Andhra & Telangana") -> ExplanationCards:
-        q_lower = query.lower()
+    async def generate_explanation(
+        self,
+        query: str,
+        language: str = "Telugu",
+        dialect: str = "Andhra & Telangana"
+    ) -> tuple[ExplanationCards, str, float]:
+        start_time = time.time()
         
-        # Retrieve curriculum grounding
-        sources = await curriculum_rag_service.retrieve_grounding(query)
+        # 1. Retrieve verified curriculum grounding context (RAG)
+        raw_sources = await curriculum_rag_service.retrieve_grounding(query)
         grounding_sources = [
             CurriculumGroundingSource(
                 document_title=s.document_title,
@@ -35,48 +37,23 @@ class AIReasoningAdapter:
                 page_number=s.page_number,
                 relevance_score=s.relevance_score,
                 excerpt=s.excerpt
-            ) for s in sources
+            ) for s in raw_sources
         ]
 
-        # 1. Pointers / Memory concept
-        if "pointer" in q_lower or "memory" in q_lower or "dereferencing" in q_lower:
-            return ExplanationCards(
-                simple_explanation="Pointer ante memory lo specific address ni store chese variable. Direct ga value ni store cheyadu, value ekkada store ayyundo aa memory location address ni point chestundi.",
-                real_life_analogy="Meeru oka library lo book chustunnaru anukondi. Book direct ga mee daggara ledu, kani catalog card paina shelf number 'Aisle 4, Shelf 2' ani rasundi. Aa catalog card ey Pointer!",
-                technical_terms=[
-                    "Dereferencing (*ptr) - Fetching data stored at pointer's address",
-                    "Memory Overhead (8 Bytes) - Address pointer allocation size on 64-bit OS",
-                    "Nullability Guard (ptr != nullptr) - Preventing segmentation faults and crashes"
-                ],
-                exam_ready_answer="A pointer in C/C++ is a derivative data type whose value refers to (or points to) another value stored elsewhere in computer memory using its memory address. Dereferencing is performed using the unary asterisk (*) operator.",
-                curriculum_sources=grounding_sources
-            )
-            
-        # 2. Recursion concept
-        if "recursion" in q_lower or "stack" in q_lower:
-            return ExplanationCards(
-                simple_explanation="Recursion ante oka function tana sontha function ni malli malli call cheskovadam. Problem ni chinnachinna sub-problems ga split chesi solve chesthundi. Base condition compulsory undali!",
-                real_life_analogy="Oka Russian Matryoshka doll laantidi! Pedda doll open cheste lopaliki inkoka chinnadi, malli adi open cheste inkoti... aakhari smallest doll (base condition) varaku open chestam.",
-                technical_terms=[
-                    "Base Condition - Halting criterion to prevent infinite recursion",
-                    "Call Stack Overhead - Memory frames pushed per recursive call",
-                    "Stack Overflow Exception - Exceeding call stack memory limits"
-                ],
-                exam_ready_answer="Recursion is a computational method where the solution to a problem depends on solutions to smaller instances of the same problem. A recursive function consists of a base case and a recursive case.",
-                curriculum_sources=grounding_sources
-            )
+        # 2. Dispatch to designated provider
+        active_provider_tag = f"{settings.AI_PROVIDER}/muse-spark-open" if settings.AI_PROVIDER == "baseten" else settings.AI_PROVIDER
 
-        # 3. Dynamic general response tailored to selected base language
-        return ExplanationCards(
-            simple_explanation=f"{query} gurinchi simple ga cheppalante: idi complex idea ni clear ga breakdown chesi nerchukodaniki use avtundi ({language} + English mix).",
-            real_life_analogy="Manam daily life lo smart shortcuts or patterns follow avtamu kada, idhi kooda anthe - continuous practice tho super easy ga grasp cheyachu.",
-            technical_terms=[
-                "Fundamental Concept - Core architecture and definitions",
-                "Implementation Protocol - Practical guidelines and execution",
-                "Best Practices - Optimization and reliable safety rules"
-            ],
-            exam_ready_answer=f"The subject '{query}' encompasses core computational principles systematically applied to solve real-world problems through structural decomposition, rigorous logic, and targeted execution.",
-            curriculum_sources=grounding_sources
-        )
+        if settings.AI_PROVIDER == "baseten":
+            explanation = await baseten_client.complete_tutor_inquiry(
+                query=query,
+                language=language,
+                dialect=dialect,
+                curriculum_context=grounding_sources
+            )
+        else:
+            explanation = baseten_client._generate_fallback(query, language, grounding_sources)
+
+        latency_ms = round((time.time() - start_time) * 1000, 2)
+        return explanation, active_provider_tag, latency_ms
 
 ai_reasoning_adapter = AIReasoningAdapter()

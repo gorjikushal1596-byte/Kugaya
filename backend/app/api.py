@@ -60,8 +60,8 @@ async def update_user_profile(payload: UserProfileUpdate, db: AsyncSession = Dep
 
 @router.post("/tutor/query", response_model=QueryResponse)
 async def submit_query(req: QueryRequest, db: AsyncSession = Depends(get_db)):
-    # 1. Generate multi-card explanation
-    explanation = await ai_reasoning_adapter.generate_explanation(
+    # 1. Generate multi-card explanation with provider metrics
+    explanation, provider_tag, latency_ms = await ai_reasoning_adapter.generate_explanation(
         query=req.query,
         language=req.language or "Telugu",
         dialect=req.dialect or "Andhra & Telangana"
@@ -90,6 +90,8 @@ async def submit_query(req: QueryRequest, db: AsyncSession = Depends(get_db)):
         language=req.language or "Telugu",
         query=req.query,
         explanation=explanation,
+        provider=provider_tag,
+        latency_ms=latency_ms,
         created_at=datetime.datetime.utcnow()
     )
 

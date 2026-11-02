@@ -14,6 +14,7 @@ class ExplanationCards(BaseModel):
     real_life_analogy: str
     technical_terms: List[str]
     exam_ready_answer: str
+    comprehension_check: Optional[str] = None
     curriculum_sources: Optional[List[CurriculumGroundingSource]] = None
 
 class QueryRequest(BaseModel):
@@ -28,6 +29,8 @@ class QueryResponse(BaseModel):
     language: str
     query: str
     explanation: ExplanationCards
+    provider: str = "baseten/muse-spark-open"
+    latency_ms: Optional[float] = None
     created_at: datetime.datetime
 
 class STTResponse(BaseModel):

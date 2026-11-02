@@ -62,3 +62,4 @@ export const HistoryScreen: React.FC = () => {
     </div>
   );
 };
+

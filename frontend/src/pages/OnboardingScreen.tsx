@@ -124,3 +124,4 @@ export const OnboardingScreen: React.FC = () => {
     </div>
   );
 };
+

@@ -6,6 +6,8 @@ interface ExplanationStreamProps {
   query: string;
   explanation: ExplanationCards;
   language: string;
+  provider?: string;
+  latencyMs?: number;
   onAskFollowUp?: (followUpQuery: string) => void;
 }
 
@@ -13,6 +15,8 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({
   query,
   explanation,
   language,
+  provider,
+  latencyMs,
   onAskFollowUp,
 }) => {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -67,9 +71,16 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({
             <span className="material-symbols-outlined text-sm">school</span>
             Student Inquiry
           </span>
-          <span className="px-2 py-0.5 rounded-full bg-surface-container-highest text-[10px] text-primary">
-            {language} + English
-          </span>
+          <div className="flex items-center gap-2">
+            {provider && (
+              <span className="px-2 py-0.5 rounded-full bg-secondary-container/30 text-[10px] text-secondary font-mono">
+                {provider} {latencyMs ? `(${latencyMs}ms)` : ''}
+              </span>
+            )}
+            <span className="px-2 py-0.5 rounded-full bg-surface-container-highest text-[10px] text-primary">
+              {language} + English
+            </span>
+          </div>
         </div>
         <p className="text-base font-semibold text-on-surface">{query}</p>
       </div>
@@ -165,7 +176,22 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({
         )}
       </div>
 
-      {/* RAG Curriculum Grounding Reference Citation (if available) */}
+      {/* Card 5: Comprehension Check (Muse Spark Open) */}
+      {explanation.comprehension_check && (
+        <div className="p-5 rounded-2xl bg-surface-container-low border border-surface-tint/40 shadow-neon">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="material-symbols-outlined text-surface-tint text-lg">quiz</span>
+            <h3 className="text-sm font-bold tracking-wide text-surface-tint uppercase">
+              5. Comprehension Check
+            </h3>
+          </div>
+          <p className="text-xs md:text-sm text-on-surface leading-relaxed">
+            {explanation.comprehension_check}
+          </p>
+        </div>
+      )}
+
+      {/* RAG Curriculum Grounding Reference Citation */}
       {explanation.curriculum_sources && explanation.curriculum_sources.length > 0 && (
         <div className="p-4 rounded-2xl bg-surface-container-high/40 border border-surface-tint/30 space-y-2">
           <div className="flex items-center gap-1.5 text-xs font-bold text-surface-tint uppercase">

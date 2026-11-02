@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 class Settings(BaseSettings):
@@ -12,8 +12,17 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./kugaya.db"
     
-    # AI Reasoning Provider (evon | gemini | mock)
-    AI_PROVIDER: str = "mock"
+    # AI Reasoning Provider (baseten | mock | gemini | evon)
+    AI_PROVIDER: str = "baseten"
+    
+    # Baseten Meta Muse Spark Open Configuration
+    BASETEN_API_KEY: Optional[str] = None
+    BASETEN_BASE_URL: str = "https://inference.baseten.co/v1"
+    BASETEN_MODEL_ID: str = "meta-models/muse-spark-open"
+    BASETEN_TIMEOUT_SECONDS: float = 30.0
+    BASETEN_MAX_RETRIES: int = 3
+    
+    # Fallback / Alternative Providers
     EVON_API_KEY: Optional[str] = None
     EVON_API_BASE: Optional[str] = None
     GEMINI_API_KEY: Optional[str] = None
@@ -27,9 +36,10 @@ class Settings(BaseSettings):
     # CORS
     ALLOWED_ORIGINS: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
 
 settings = Settings()
-

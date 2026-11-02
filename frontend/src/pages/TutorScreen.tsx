@@ -205,6 +205,8 @@ export const TutorScreen: React.FC = () => {
             query={activeSession.query}
             explanation={activeSession.explanation}
             language={activeSession.language}
+            provider={activeSession.provider}
+            latencyMs={activeSession.latency_ms}
             onAskFollowUp={handleFollowUp}
           />
         </div>
@@ -219,3 +221,4 @@ export const TutorScreen: React.FC = () => {
     </div>
   );
 };
+
