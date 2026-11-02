@@ -12,7 +12,7 @@ from app.schemas import (
     STTResponse, TTSRequest, TTSResponse,
     UserProfileUpdate, UserProfileResponse, SavedLessonItem
 )
-from app.services.speech_service import gnani_adapter
+from app.services.speech_service import gnani_speech_service
 from app.services.reasoning_service import reasoning_service
 from app.services.conversation_service import conversation_service
 
@@ -103,12 +103,22 @@ async def speech_to_text(
     language: str = Form("te")
 ):
     audio_content = await audio.read()
-    stt_res = await gnani_adapter.transcribe_audio(audio_content, language=language)
-    return stt_res
+    try:
+        stt_res = await gnani_speech_service.transcribe_audio(
+            audio_bytes=audio_content,
+            filename=audio.filename or "audio.wav",
+            content_type=audio.content_type or "audio/wav",
+            language=language
+        )
+        return stt_res
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Gnani STT service error: {str(e)}")
 
 @router.post("/voice/tts", response_model=TTSResponse)
 async def text_to_speech(req: TTSRequest):
-    tts_res = await gnani_adapter.synthesize_speech(
+    tts_res = await gnani_speech_service.synthesize_speech(
         text=req.text,
         language=req.language or "te",
         voice_gender=req.voice_gender or "female"

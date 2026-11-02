@@ -2,59 +2,46 @@
 ## PROJECT_STATUS.md
 
 **Last Updated:** 2026-11-02  
-**Current Milestone:** Phase 8 Core Reasoning Engine & Multi-Turn Verification Succeeded.
+**Current Milestone:** Gnani AI Prisma v2.5 Speech-to-Text Live Integration Succeeded.
 
 ---
 
-### 1. Live Verification & Model Status
-- [x] **Baseten Key Inspection**:
-  - Found active key securely stored in gitignored `backend/.env` (length: 41 characters, masked format: `osKl...k21q`).
-  - Cleared credentials from `backend/.env.example` to ensure no accidental Git exposure.
-- [x] **Endpoint Verification**:
-  - Endpoint: `https://inference.baseten.co/v1/chat/completions` (OpenAI-compatible).
-  - Model Identifier: `meta-models/muse-spark-open` (Meta Muse Spark Open MoE 816B/42B active).
-- [x] **Live Smoke Test Execution**:
-  - **HTTP Status Code**: `200 OK`
-  - **Prompt Tokens**: 169
-  - **Completion Tokens**: 417 (Chain-of-Thought reasoning budget allocated).
-  - **Output Verified**: Compiler definition in English & Tenglish with Restaurant Analogy.
+### 1. Gnani AI Prisma v2.5 STT Verification
+- [x] **API Specification & Handshake**:
+  - Endpoint: `https://api.vachana.ai/stt/v3`
+  - Authentication: Custom header `X-API-Key-ID: <GNANI_API_KEY>`
+  - Request Format: `multipart/form-data` with `audio_file` and `language_code`
+  - Model tag: `prisma-v2.5`
+  - Regional Language Code resolution: `te-IN` (Telugu), `hi-IN` (Hindi), `ta-IN` (Tamil), `kn-IN` (Kannada), `ml-IN` (Malayalam), `en-IN` (English).
+  - Status: **Live Authenticated Handshake Verified** (`HTTP 200 OK`, `is_mock: False`).
+- [x] **Backend Implementation**:
+  - Service: `backend/app/services/speech_service.py` (`GnaniSpeechService`).
+  - Validation: Enforces minimum audio payload length and maximum file size (`MAX_AUDIO_SIZE_BYTES = 25 MB`).
+  - Supported audio formats: WAV, WebM, OGG, MP3, FLAC, M4A.
+  - Fail-safe retry logic: Configurable timeout (`25.0s`) and bounded retries.
+- [x] **Frontend Voice Interface**:
+  - Hook: `frontend/src/hooks/useAudioRecorder.ts` with real-time `MediaRecorder`, `AudioContext`, and volume metering.
+  - Visualizer: `NeuralOrb.tsx` animated waveform oscillating according to live voice loudness.
+  - Voice Screen: `frontend/src/pages/VoiceScreen.tsx` supporting:
+    1. Mic permission request
+    2. Real-time recording with elapsed timer
+    3. Waveform oscillations
+    4. Auto-submission to Gnani Prisma STT
+    5. Recognized text preview card
+    6. Inline transcription editing before submitting
+    7. Forwarding to Meta Muse Spark Open on Baseten.
+- [x] **End-to-End Pipeline Testing**:
+  - Test Suite: `backend/tests/test_gnani_stt.py`
+  - Empty audio payload rejection: PASSED (HTTP 400).
+  - Language code mappings: PASSED across 6 Indic languages.
+  - Live Prisma endpoint handshake: PASSED (`is_mock: False`).
+  - Full Voice-to-Reasoning pipeline flow: PASSED (Recorded query `Recursion lo base case lekapothe emavthundi Kugaya?` successfully recognized and answered by Muse Spark Open in Tenglish).
+  - Frontend production build: PASSED (`npm run build`).
 
 ---
 
-### 2. Phase 8 Scenario Test Results (100% Passed)
-Automated verification executed against live Meta Muse Spark Open via Baseten (`pytest tests/test_reasoning_scenarios.py -v -s`):
-
-1. **Scenario 1: Binary Search in Telugu-English (Tenglish)**
-   - **Status**: PASSED (`20,418 ms`)
-   - **Vernacular Quality**: Natural Tenglish (`"Chudu, Binary Search ante oka super-fast searching technique..."`).
-   - **Analogy**: Oxford Dictionary word search.
-   - **Technical Terms**: `Divide-and-Conquer`, `Time Complexity O(log n)`, `Mid Calculation`, etc.
-   - **Comprehension Check**: Interactive step-by-step multiple choice question testing pointer logic.
-
-2. **Scenario 2: OS Process vs Thread in Hinglish**
-   - **Status**: PASSED (`12,528 ms`)
-   - **Vernacular Quality**: Natural Hinglish (`"Dekho, sabse simple tarike se samjhte hain. Process matlab ek program jo execution mein hai..."`).
-   - **Technical Precision**: Isolated address space, call stack, and context switching preserved.
-
-3. **Scenario 3: DBMS Normalization in Simple English**
-   - **Status**: PASSED (`7,534 ms`)
-   - **Exam-Ready Definition**: High-scoring academic decomposition definition for 1NF, 2NF, 3NF suitable for university exams.
-
-4. **Scenario 4: Recursion using Everyday Indian Analogy**
-   - **Status**: PASSED (`17,563 ms`)
-   - **Analogy**: Steel kitchen dabba set (ginnelu) holding a laddu at the bottom; opening each dabba represents recursive calls, finding the laddu represents the base condition, and endless dabbas represent StackOverflowError.
-
-5. **Scenario 5: Multi-Turn Conversation & Follow-Up Context**
-   - **Status**: PASSED (`11,155 ms`)
-   - **Turn 1**: Explanation of OS Mutex lock.
-   - **Turn 2**: Student asks: *"What if two threads try to acquire it at the exact same millisecond? Who wins?"*
-   - **Result**: Meta Muse Spark Open successfully recalled Turn 1 context, explaining atomic hardware instructions (`test-and-set`), bus arbitration, and OS scheduler resolution.
-
----
-
-### 3. Architecture & Frontend Connection
-- `backend/app/services/reasoning_service.py`: Dispatches queries with conversational context and RAG grounding.
-- `backend/app/services/conversation_service.py`: Multi-turn state tracking and conversation database storage.
-- `backend/app/services/baseten_service.py`: Robust client with 3072 token budget, backoff retries, and markdown JSON extraction.
-- `frontend/src/pages/TutorScreen.tsx`: Displays multi-turn threads, inline mic STT, 5-card multi-modal responses, and follow-up interaction.
-- `frontend/src/pages/HistoryScreen.tsx`: Restores past conversations with full cards.
+### 2. Full Architecture Status
+- **Speech-to-Text (STT)**: Live Gnani AI Prisma v2.5 (`https://api.vachana.ai/stt/v3`)
+- **Reasoning Model**: Live Meta Muse Spark Open via Baseten (`https://inference.baseten.co/v1`)
+- **Text-to-Speech (TTS)**: Gnani AI Timbre v2.5 (`https://api.vachana.ai/tts/v3`)
+- **Persistence**: SQLite (Async SQLAlchemy) tracking multi-turn conversations and messages.

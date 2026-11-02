@@ -22,16 +22,13 @@ class Settings(BaseSettings):
     BASETEN_TIMEOUT_SECONDS: float = 30.0
     BASETEN_MAX_RETRIES: int = 3
     
-    # Fallback / Alternative Providers
-    EVON_API_KEY: Optional[str] = None
-    EVON_API_BASE: Optional[str] = None
-    GEMINI_API_KEY: Optional[str] = None
-    
-    # Gnani AI Speech Integrations
+    # Gnani AI Speech Integrations (Prisma v2.5 STT & Timbre v2.5 TTS)
     GNANI_API_KEY: Optional[str] = None
-    GNANI_PRISMA_STT_URL: str = "https://api.gnani.ai/v2.5/stt"
-    GNANI_TIMBRE_TTS_URL: str = "https://api.gnani.ai/v2.5/tts"
-    GNANI_MOCK_FALLBACK: bool = True
+    GNANI_PRISMA_STT_URL: str = "https://api.vachana.ai/stt/v3"
+    GNANI_TIMBRE_TTS_URL: str = "https://api.vachana.ai/tts/v3"
+    GNANI_MOCK_FALLBACK: bool = False
+    GNANI_TIMEOUT_SECONDS: float = 25.0
+    MAX_AUDIO_SIZE_BYTES: int = 25 * 1024 * 1024  # 25 MB
     
     # CORS
     ALLOWED_ORIGINS: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
