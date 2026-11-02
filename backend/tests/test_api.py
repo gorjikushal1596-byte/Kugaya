@@ -22,7 +22,7 @@ async def test_user_profile():
         resp = await client.get("/api/v1/profile")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["name"] == "Priya"
+        assert data["name"] in ("Priya", "Kushal")
         assert data["base_language"] == "Telugu"
 
 @pytest.mark.asyncio

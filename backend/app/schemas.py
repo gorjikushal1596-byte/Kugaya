@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import datetime
 
 class CurriculumGroundingSource(BaseModel):
@@ -41,12 +41,19 @@ class MessageItem(BaseModel):
     explanation: Optional[ExplanationCards] = None
     created_at: datetime.datetime
 
+class ConversationCreateRequest(BaseModel):
+    title: Optional[str] = "New Conversation"
+    topic: Optional[str] = "Computer Science"
+    language: Optional[str] = "Telugu"
+    dialect: Optional[str] = "Andhra & Telangana"
+
 class ConversationSummary(BaseModel):
     id: str
     title: str
     topic: str
     language: str
     message_count: int
+    last_message_snippet: Optional[str] = None
     created_at: datetime.datetime
     updated_at: datetime.datetime
 
@@ -101,6 +108,14 @@ class UserProfileUpdate(BaseModel):
     base_language: Optional[str] = None
     dialect: Optional[str] = None
     speaking_mode: Optional[str] = None
+    code_mixing_style: Optional[str] = None
+    explanation_complexity: Optional[str] = None
+    technical_terminology_mode: Optional[str] = None
+    audio_playback_auto: Optional[bool] = None
+    speech_playback_speed: Optional[float] = None
+    streak_days: Optional[int] = None
+    points: Optional[int] = None
+    daily_goal_minutes: Optional[int] = None
 
 class UserProfileResponse(BaseModel):
     id: str
@@ -108,12 +123,38 @@ class UserProfileResponse(BaseModel):
     base_language: str
     dialect: str
     speaking_mode: str
+    code_mixing_style: str = "balanced_50_50"
+    explanation_complexity: str = "intermediate"
+    technical_terminology_mode: str = "english_standard"
+    audio_playback_auto: bool = False
+    speech_playback_speed: float = 1.0
     streak_days: int = 4
     points: int = 1250
+    daily_goal_minutes: int = 20
 
 class SavedLessonItem(BaseModel):
     id: str
+    conversation_id: Optional[str] = None
     title: str
     category: str
     key_points: str
+    full_explanation: Optional[ExplanationCards] = None
+    curriculum_sources: Optional[List[CurriculumGroundingSource]] = None
+    tags: Optional[str] = ""
     saved_at: datetime.datetime
+
+class SavedLessonCreate(BaseModel):
+    id: Optional[str] = None
+    conversation_id: Optional[str] = None
+    title: str
+    category: Optional[str] = "Computer Science"
+    key_points: str
+    full_explanation: Optional[ExplanationCards] = None
+    curriculum_sources: Optional[List[CurriculumGroundingSource]] = None
+    tags: Optional[str] = ""
+
+class DataPurgeResponse(BaseModel):
+    status: str
+    conversations_deleted: int
+    saved_lessons_deleted: int
+    message: str

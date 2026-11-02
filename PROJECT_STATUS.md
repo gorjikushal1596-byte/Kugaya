@@ -2,43 +2,70 @@
 ## PROJECT_STATUS.md
 
 **Last Updated:** 2026-11-02  
-**Current Milestone:** Curriculum-Grounded RAG Intelligence Engine Complete and Verified.
+**Current Milestone:** User Management and Learning Persistence Implemented & Verified.
 
 ---
 
-### 1. Curriculum-Grounded RAG Intelligence Layer
-- [x] **Architecture & Design**:
-  - Independent, non-blocking intelligence layer on top of Meta Muse Spark Open via Baseten.
-  - Multi-tiered document processing with PDF & Text/Markdown parsing, chapter identification, page-number tracking, and chunk metadata preservation.
-  - Hybrid retrieval algorithm: Dense multilingual embedding cosine similarity + Sparse BM25Okapi keyword scoring fused via Reciprocal Rank Fusion (RRF, $k=60$).
-  - Storage: Persistent SQLite vector store with JSON-serialized dense vectors (`CurriculumDocument` and `CurriculumChunk` models via SQLAlchemy AsyncSession).
-  - Graceful fallback: Default AICTE / Standard University Engineering Syllabus grounding when no documents are uploaded, ensuring 100% system availability.
-- [x] **Backend Services & API Endpoints**:
-  - `backend/app/services/rag_service.py` (`HybridCurriculumRAGService` with `MultilingualEmbeddingService`, `BM25Okapi`, RRF).
-  - `POST /api/v1/curriculum/upload`: Ingests `.pdf`, `.txt`, `.md` up to 25MB, parses chapters/pages, generates embeddings, and saves to database.
-  - `GET /api/v1/curriculum/documents`: Lists all uploaded curriculum textbooks, syllabus guides, and notes.
-  - `DELETE /api/v1/curriculum/documents/{document_id}`: Removes document and purges all associated chunks and vector embeddings.
-  - `POST /api/v1/tutor/query`: Supports `use_curriculum_rag: bool` flag, injects verified textbook excerpts into Meta Muse Spark Open prompt, and returns `has_curriculum_grounding` and `curriculum_sources`.
+### 1. User Management & Learning Persistence Architecture
+- [x] **Database Audit & Schema Evolution**:
+  - Reused existing SQLite database (`kugaya.db`) and SQLAlchemy Async engine.
+  - Safe automatic column migration in `init_db()` (`_apply_column_migrations`) preserving all pre-existing records with zero data loss.
+  - Enforced SQLite foreign key constraints (`PRAGMA foreign_keys = ON;`).
+  - Cascading deletes on conversation messages when a conversation is deleted (`ondelete="CASCADE"`).
+  - Preserved relationships between users, conversations, messages, saved lessons, and RAG document chunks.
+- [x] **User Preferences & Profiles**:
+  - Persisted attributes: `base_language`, `dialect`, `speaking_mode` ("bilingual" | "immersion"), `code_mixing_style` ("balanced_50_50" | "indic_heavy" | "english_heavy"), `explanation_complexity` ("beginner" | "intermediate" | "exam_rigorous"), `technical_terminology_mode` ("english_standard" | "vernacular_glossary"), `audio_playback_auto` (bool), `speech_playback_speed` (0.75x–1.5x), `streak_days`, `points`, `daily_goal_minutes`.
+  - Stored in SQLite and cached via `localStorage` on boot for instant UI responsiveness.
+  - Interactive preferences updated via `PUT /api/v1/profile` with live sync to `UserContext`.
+- [x] **Multi-turn Conversation History**:
+  - Full CRUD: Create, read summary list with search (`GET /api/v1/conversations?q=...`), get full message detail with citation restoration (`GET /api/v1/conversations/{id}`), continue existing threads, and delete thread (`DELETE /api/v1/conversations/{id}`).
+  - Persists student queries, assistant 5-tier explanations, latency, and verified textbook citation arrays.
+- [x] **Saved Lessons & Notebook**:
+  - Full CRUD: Bookmarking explanations directly from the AI Tutor 5-card stream, category filtering (`GET /api/v1/saved?category=...`), keyword search (`GET /api/v1/saved?q=...`), get single lesson detail, and unsave/delete (`DELETE /api/v1/saved/{id}`).
+  - Stores complete `ExplanationCards` JSON and associated `CurriculumGroundingSource` citations.
+- [x] **Privacy & Data Reset**:
+  - Added `DELETE /api/v1/profile/data` to purge student conversation history and saved lessons on demand while preserving base profile settings.
 - [x] **Frontend Neon UI Integration**:
-  - `frontend/src/components/ExplanationStream.tsx`: Added dedicated `Curriculum Grounding & Citations` card displaying verified document titles, chapter badges, page numbers (`p. 96`), match relevance score percentages, and formatted textbook quotes.
-  - `frontend/src/pages/TutorScreen.tsx`:
-    - RAG Toggle Button: One-click switch to enable/disable curriculum grounding.
-    - Curriculum Knowledge Base Modal: View all indexed textbooks and notes, upload custom curriculum materials, and instant 1-click sample OS syllabus ingestion.
-- [x] **Verification Suite Results (`backend/tests/test_rag_pipeline.py`)**:
-  - Test 1 (Curriculum Ingestion & Indexing): PASSED (Parsed 3 distinct chapter/page vector chunks).
-  - Test 2 (Exact Grounding Retrieval): PASSED (Cited Chapter 4, Page 84 with high relevance score).
-  - Test 3 (Multilingual Tenglish Query Grounding): PASSED (Code-mixed Telugu-English mapped to Chapter 5 Paging Algorithms).
-  - Test 4 (Technical Terminology Precision): PASSED (Preserved exact C/C++ memory bug definitions from Chapter 6).
-  - Test 5 (End-to-End Reasoning with RAG Citations): PASSED (Meta Muse Spark Open generated 5-card pedagogical explanation citing uploaded textbook).
-  - Test 6 (Document Deletion & Vector Purge): PASSED (Clean cascade deletion).
-  - Full Backend Regression (`test_api.py` + `test_rag_pipeline.py`): 10/10 PASSED (100%).
-  - Frontend Production Build (`tsc -b && vite build`): PASSED (0 errors, 1.06s).
+  - `HistoryScreen.tsx`: Real backend conversations, keyword search filter, conversation pill selector, continue in AI Tutor CTA, delete confirmation, and message thread stream.
+  - `SavedScreen.tsx`: Real saved lessons, category filter chips, search input, concept review modal with full 5-tier cards, Gnani Timbre voice review player, and unsave action.
+  - `LanguageScreen.tsx`: Base language selector (Telugu, Hindi, Tamil, Kannada, Malayalam, Bengali, Marathi, English), delivery mode, code-mixing ratio, complexity level, technical terminology policy, and persistent save.
+  - `ProfileScreen.tsx`: Editable name, daily streak, points, daily target goal selector, speech playback speed controls (0.75x–1.5x), auto-play audio toggle, and learning data purge modal.
 
 ---
 
-### 2. Complete Architecture Status
+### 2. Comprehensive Test Verification (`backend/tests/`)
+
+All 17 tests across the entire backend regression suite passed:
+
+```
+tests/test_api.py::test_health PASSED                                    [  5%]
+tests/test_api.py::test_user_profile PASSED                              [ 11%]
+tests/test_api.py::test_tutor_query PASSED                               [ 17%]
+tests/test_api.py::test_voice_stt PASSED                                 [ 23%]
+tests/test_rag_pipeline.py::test_1_curriculum_ingestion_and_indexing PASSED [ 29%]
+tests/test_rag_pipeline.py::test_2_exact_curriculum_grounding_retrieval PASSED [ 35%]
+tests/test_rag_pipeline.py::test_3_multilingual_tenglish_query_grounding PASSED [ 41%]
+tests/test_rag_pipeline.py::test_4_technical_terminology_precision PASSED [ 47%]
+tests/test_rag_pipeline.py::test_5_end_to_end_reasoning_with_rag_citations PASSED [ 52%]
+tests/test_rag_pipeline.py::test_6_document_deletion_cleanup PASSED      [ 58%]
+tests/test_persistence_pipeline.py::test_1_save_and_retrieve_user_preferences PASSED [ 64%]
+tests/test_persistence_pipeline.py::test_2_persistence_after_simulated_restart PASSED [ 70%]
+tests/test_persistence_pipeline.py::test_3_conversation_creation_and_listing PASSED [ 76%]
+tests/test_persistence_pipeline.py::test_4_save_ai_response_and_multi_turn_continuation PASSED [ 82%]
+tests/test_persistence_pipeline.py::test_5_saved_lessons_crud_and_search PASSED [ 88%]
+tests/test_persistence_pipeline.py::test_6_delete_conversation_cascade PASSED [ 94%]
+tests/test_persistence_pipeline.py::test_7_privacy_and_data_purge PASSED [100%]
+
+====================== 17 passed in 46.59s =======================
+```
+
+- Frontend build (`tsc -b && vite build`): **PASSED** (0 errors, 692ms).
+
+---
+
+### 3. Complete Architecture Status
 - **Speech-to-Text (STT)**: Live Gnani AI Prisma v2.5 (`https://api.vachana.ai/stt/v3`)
 - **Reasoning Model**: Live Meta Muse Spark Open via Baseten (`https://inference.baseten.co/v1`)
 - **Text-to-Speech (TTS)**: Live Gnani AI Timbre v2.5 (`https://api.vachana.ai/api/v1/tts/inference`)
 - **Curriculum RAG**: Hybrid Dense (Multilingual Vector) + Sparse (BM25Okapi) with RRF Fusion and Chapter/Page Grounding
-- **Persistence**: SQLite (Async SQLAlchemy) multi-turn conversations, messages, and vector chunk tables.
+- **Persistence & User Management**: SQLite AsyncSession + SQLAlchemy with multi-turn conversations, saved lessons, preference migrations, and cascade integrity.

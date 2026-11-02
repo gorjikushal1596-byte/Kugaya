@@ -8,6 +8,7 @@ import {
   fetchCurriculumDocuments,
   uploadCurriculumDocument,
   deleteCurriculumDocument,
+  fetchConversationDetail,
 } from '../services/api';
 import { ExplanationStream } from '../components/ExplanationStream';
 
@@ -50,10 +51,21 @@ export const TutorScreen: React.FC = () => {
   };
 
   useEffect(() => {
-    if (location.state && (location.state as { initialQuery?: string }).initialQuery) {
-      const q = (location.state as { initialQuery: string }).initialQuery;
-      setQueryInput(q);
-      executeExplanation(q, null);
+    if (location.state) {
+      const stateObj = location.state as { initialQuery?: string; continueConversationId?: string };
+      if (stateObj.initialQuery) {
+        setQueryInput(stateObj.initialQuery);
+        executeExplanation(stateObj.initialQuery, null);
+      } else if (stateObj.continueConversationId) {
+        setConversationId(stateObj.continueConversationId);
+        fetchConversationDetail(stateObj.continueConversationId)
+          .then((detail) => {
+            if (detail && detail.messages) {
+              setMessages(detail.messages);
+            }
+          })
+          .catch(console.error);
+      }
     }
   }, [location.state]);
 

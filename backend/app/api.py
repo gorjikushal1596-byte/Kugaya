@@ -1,6 +1,7 @@
 import uuid
 import datetime
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+from typing import Optional, List
+from fastapi import APIRouter, Depends, UploadFile, File, Form, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -8,9 +9,10 @@ from app.database import get_db
 from app.models import User, SavedLesson
 from app.schemas import (
     TutorInquiryRequest, TutorInquiryResponse,
-    ConversationSummary, ConversationDetail,
+    ConversationCreateRequest, ConversationSummary, ConversationDetail,
     STTResponse, TTSRequest, TTSResponse,
-    UserProfileUpdate, UserProfileResponse, SavedLessonItem,
+    UserProfileUpdate, UserProfileResponse,
+    SavedLessonItem, SavedLessonCreate, DataPurgeResponse,
     CurriculumUploadResponse, CurriculumDocumentSummary
 )
 from app.services.speech_service import gnani_speech_service
@@ -20,49 +22,95 @@ from app.services.rag_service import curriculum_rag_service
 
 router = APIRouter()
 
+# --- User Profile & Preferences ---
+
 @router.get("/profile", response_model=UserProfileResponse)
 async def get_user_profile(db: AsyncSession = Depends(get_db)):
     user = await db.get(User, "user_default")
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User profile not found")
     return UserProfileResponse(
         id=user.id,
         name=user.name,
         base_language=user.base_language,
         dialect=user.dialect,
         speaking_mode=user.speaking_mode,
-        streak_days=user.streak_days if hasattr(user, 'streak_days') else 4,
-        points=1250
+        code_mixing_style=getattr(user, "code_mixing_style", "balanced_50_50"),
+        explanation_complexity=getattr(user, "explanation_complexity", "intermediate"),
+        technical_terminology_mode=getattr(user, "technical_terminology_mode", "english_standard"),
+        audio_playback_auto=bool(getattr(user, "audio_playback_auto", 0)),
+        speech_playback_speed=float(getattr(user, "speech_playback_speed", 1.0)),
+        streak_days=getattr(user, "streak_days", 4),
+        points=getattr(user, "points", 1250),
+        daily_goal_minutes=getattr(user, "daily_goal_minutes", 20)
     )
 
 @router.put("/profile", response_model=UserProfileResponse)
 async def update_user_profile(payload: UserProfileUpdate, db: AsyncSession = Depends(get_db)):
     user = await db.get(User, "user_default")
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User profile not found")
         
     if payload.name is not None:
-        user.name = payload.name
+        user.name = payload.name.strip()
     if payload.base_language is not None:
         user.base_language = payload.base_language
     if payload.dialect is not None:
         user.dialect = payload.dialect
     if payload.speaking_mode is not None:
         user.speaking_mode = payload.speaking_mode
+    if payload.code_mixing_style is not None:
+        user.code_mixing_style = payload.code_mixing_style
+    if payload.explanation_complexity is not None:
+        user.explanation_complexity = payload.explanation_complexity
+    if payload.technical_terminology_mode is not None:
+        user.technical_terminology_mode = payload.technical_terminology_mode
+    if payload.audio_playback_auto is not None:
+        user.audio_playback_auto = 1 if payload.audio_playback_auto else 0
+    if payload.speech_playback_speed is not None:
+        user.speech_playback_speed = payload.speech_playback_speed
+    if payload.daily_goal_minutes is not None:
+        user.daily_goal_minutes = payload.daily_goal_minutes
+    if payload.streak_days is not None:
+        user.streak_days = payload.streak_days
+    if payload.points is not None:
+        user.points = payload.points
         
+    user.updated_at = datetime.datetime.utcnow()
     await db.commit()
     await db.refresh(user)
+
     return UserProfileResponse(
         id=user.id,
         name=user.name,
         base_language=user.base_language,
         dialect=user.dialect,
         speaking_mode=user.speaking_mode,
-        streak_days=4,
-        points=1250
+        code_mixing_style=getattr(user, "code_mixing_style", "balanced_50_50"),
+        explanation_complexity=getattr(user, "explanation_complexity", "intermediate"),
+        technical_terminology_mode=getattr(user, "technical_terminology_mode", "english_standard"),
+        audio_playback_auto=bool(getattr(user, "audio_playback_auto", 0)),
+        speech_playback_speed=float(getattr(user, "speech_playback_speed", 1.0)),
+        streak_days=getattr(user, "streak_days", 4),
+        points=getattr(user, "points", 1250),
+        daily_goal_minutes=getattr(user, "daily_goal_minutes", 20)
     )
 
-# Core AI Tutor Reasoning Endpoint
+@router.delete("/profile/data", response_model=DataPurgeResponse)
+async def purge_student_data(db: AsyncSession = Depends(get_db)):
+    """
+    Privacy & Data Reset: Deletes all student conversations and saved lessons.
+    """
+    result = await conversation_service.purge_user_data(db, user_id="user_default")
+    return DataPurgeResponse(
+        status="success",
+        conversations_deleted=result["conversations_deleted"],
+        saved_lessons_deleted=result["saved_lessons_deleted"],
+        message=f"Purged {result['conversations_deleted']} conversations and {result['saved_lessons_deleted']} saved lessons."
+    )
+
+# --- Core AI Tutor Reasoning ---
+
 @router.post("/tutor/query", response_model=TutorInquiryResponse)
 async def submit_query(req: TutorInquiryRequest, db: AsyncSession = Depends(get_db)):
     explanation, conv_id, msg_id, latency_ms, has_grounding = await reasoning_service.answer_student_inquiry(
@@ -88,10 +136,28 @@ async def submit_query(req: TutorInquiryRequest, db: AsyncSession = Depends(get_
         created_at=datetime.datetime.utcnow()
     )
 
-# Conversation Management Endpoints
-@router.get("/conversations", response_model=list[ConversationSummary])
-async def list_conversations(db: AsyncSession = Depends(get_db)):
-    return await conversation_service.list_conversations(db=db, user_id="user_default")
+# --- Conversation Management ---
+
+@router.get("/conversations", response_model=List[ConversationSummary])
+async def list_conversations(
+    q: Optional[str] = Query(None, description="Search keyword in title or topic"),
+    db: AsyncSession = Depends(get_db)
+):
+    return await conversation_service.list_conversations(db=db, user_id="user_default", search_query=q)
+
+@router.post("/conversations", response_model=ConversationSummary)
+async def create_conversation(
+    req: ConversationCreateRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    return await conversation_service.create_conversation(
+        db=db,
+        user_id="user_default",
+        title=req.title or "New Conversation",
+        topic=req.topic or "Computer Science",
+        language=req.language or "Telugu",
+        dialect=req.dialect or "Andhra & Telangana"
+    )
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationDetail)
 async def get_conversation(conversation_id: str, db: AsyncSession = Depends(get_db)):
@@ -100,7 +166,48 @@ async def get_conversation(conversation_id: str, db: AsyncSession = Depends(get_
         raise HTTPException(status_code=404, detail="Conversation not found")
     return conv
 
-# Voice STT & TTS Endpoints
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: str, db: AsyncSession = Depends(get_db)):
+    deleted = await conversation_service.delete_conversation(db=db, conversation_id=conversation_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {"status": "success", "deleted_conversation_id": conversation_id}
+
+# --- Saved Lessons Management ---
+
+@router.get("/saved", response_model=List[SavedLessonItem])
+async def get_saved_lessons(
+    q: Optional[str] = Query(None, description="Search keyword in title or concepts"),
+    category: Optional[str] = Query(None, description="Category filter"),
+    db: AsyncSession = Depends(get_db)
+):
+    return await conversation_service.list_saved_lessons(
+        db=db,
+        user_id="user_default",
+        search_query=q,
+        category=category
+    )
+
+@router.post("/saved", response_model=SavedLessonItem)
+async def save_lesson(item: SavedLessonCreate, db: AsyncSession = Depends(get_db)):
+    return await conversation_service.save_lesson(db=db, user_id="user_default", item=item)
+
+@router.get("/saved/{lesson_id}", response_model=SavedLessonItem)
+async def get_single_saved_lesson(lesson_id: str, db: AsyncSession = Depends(get_db)):
+    lesson = await conversation_service.get_saved_lesson(db=db, lesson_id=lesson_id)
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Saved lesson not found")
+    return lesson
+
+@router.delete("/saved/{lesson_id}")
+async def delete_saved_lesson(lesson_id: str, db: AsyncSession = Depends(get_db)):
+    deleted = await conversation_service.delete_saved_lesson(db=db, lesson_id=lesson_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Saved lesson not found")
+    return {"status": "success", "deleted_lesson_id": lesson_id}
+
+# --- Voice STT & TTS Endpoints ---
+
 @router.post("/voice/stt", response_model=STTResponse)
 async def speech_to_text(
     audio: UploadFile = File(...),
@@ -135,56 +242,8 @@ async def text_to_speech(req: TTSRequest):
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Gnani TTS service error: {str(e)}")
 
-# Saved Lessons Endpoints
-@router.get("/saved", response_model=list[SavedLessonItem])
-async def get_saved_lessons(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(SavedLesson).order_by(SavedLesson.saved_at.desc())
-    )
-    lessons = result.scalars().all()
-    
-    if not lessons:
-        return [
-            SavedLessonItem(
-                id="saved_1",
-                title="Pointers vs References (Tenglish)",
-                category="C++ Systems",
-                key_points="Pointer stores explicit memory address. Reference acts as alias to an already allocated identifier.",
-                saved_at=datetime.datetime.utcnow() - datetime.timedelta(days=1)
-            ),
-            SavedLessonItem(
-                id="saved_2",
-                title="TCP vs UDP Transmission (Hinglish)",
-                category="Networking",
-                key_points="TCP guarantees ordered three-way handshake delivery; UDP streams faster with zero recovery overhead.",
-                saved_at=datetime.datetime.utcnow() - datetime.timedelta(days=3)
-            )
-        ]
-        
-    return [
-        SavedLessonItem(
-            id=l.id,
-            title=l.title,
-            category=l.category,
-            key_points=l.key_points,
-            saved_at=l.saved_at
-        ) for l in lessons
-    ]
+# --- Curriculum Grounding & RAG Endpoints ---
 
-@router.post("/saved")
-async def save_lesson(item: SavedLessonItem, db: AsyncSession = Depends(get_db)):
-    new_l = SavedLesson(
-        id=item.id or f"saved_{uuid.uuid4().hex[:8]}",
-        user_id="user_default",
-        title=item.title,
-        category=item.category,
-        key_points=item.key_points
-    )
-    db.add(new_l)
-    await db.commit()
-    return {"status": "success", "id": new_l.id}
-
-# Curriculum Grounding & RAG Endpoints
 @router.post("/curriculum/upload", response_model=CurriculumUploadResponse)
 async def upload_curriculum_document(
     file: UploadFile = File(...),
@@ -192,9 +251,6 @@ async def upload_curriculum_document(
     subject: str = Form("Computer Science"),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Ingests PDF or text curriculum material, chunks and indexes with hybrid vector + sparse embeddings.
-    """
     content = await file.read()
     if len(content) > 25 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File exceeds maximum allowed upload size of 25MB.")
@@ -221,18 +277,12 @@ async def upload_curriculum_document(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process curriculum document: {str(e)}")
 
-@router.get("/curriculum/documents", response_model=list[CurriculumDocumentSummary])
+@router.get("/curriculum/documents", response_model=List[CurriculumDocumentSummary])
 async def list_curriculum_documents(db: AsyncSession = Depends(get_db)):
-    """
-    Returns list of all active uploaded textbooks, syllabus guides and lecture notes.
-    """
     return await curriculum_rag_service.list_documents(db)
 
 @router.delete("/curriculum/documents/{document_id}")
 async def delete_curriculum_document(document_id: str, db: AsyncSession = Depends(get_db)):
-    """
-    Deletes an uploaded curriculum document and all associated chunks and embeddings.
-    """
     deleted = await curriculum_rag_service.delete_document(db, document_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Curriculum document not found.")

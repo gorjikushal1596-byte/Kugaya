@@ -4,6 +4,8 @@ import type {
   ConversationSummary,
   ConversationDetail,
   SavedLessonItem,
+  SavedLessonCreate,
+  DataPurgeResponse,
   STTResponse,
   TTSResponse,
   CurriculumDocumentSummary,
@@ -11,6 +13,8 @@ import type {
 } from '../types';
 
 const API_BASE = '/api/v1';
+
+// --- User Profile & Preferences ---
 
 export async function fetchProfile(): Promise<UserProfile> {
   const res = await fetch(`${API_BASE}/profile`);
@@ -27,6 +31,16 @@ export async function updateProfile(data: Partial<UserProfile>): Promise<UserPro
   if (!res.ok) throw new Error('Failed to update profile');
   return res.json();
 }
+
+export async function purgeUserData(): Promise<DataPurgeResponse> {
+  const res = await fetch(`${API_BASE}/profile/data`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to reset user data');
+  return res.json();
+}
+
+// --- Tutor Reasoning ---
 
 export async function sendTutorQuery(
   query: string,
@@ -52,9 +66,29 @@ export async function sendTutorQuery(
   return res.json();
 }
 
-export async function fetchConversations(): Promise<ConversationSummary[]> {
-  const res = await fetch(`${API_BASE}/conversations`);
+// --- Conversations History ---
+
+export async function fetchConversations(searchQuery?: string): Promise<ConversationSummary[]> {
+  const url = searchQuery && searchQuery.trim()
+    ? `${API_BASE}/conversations?q=${encodeURIComponent(searchQuery.trim())}`
+    : `${API_BASE}/conversations`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error('Failed to fetch conversations');
+  return res.json();
+}
+
+export async function createConversation(
+  title = 'New Conversation',
+  topic = 'Computer Science',
+  language = 'Telugu',
+  dialect = 'Andhra & Telangana'
+): Promise<ConversationSummary> {
+  const res = await fetch(`${API_BASE}/conversations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, topic, language, dialect }),
+  });
+  if (!res.ok) throw new Error('Failed to create conversation');
   return res.json();
 }
 
@@ -64,23 +98,54 @@ export async function fetchConversationDetail(conversationId: string): Promise<C
   return res.json();
 }
 
-export async function fetchSavedLessons(): Promise<SavedLessonItem[]> {
-  const res = await fetch(`${API_BASE}/saved`);
+export async function deleteConversation(conversationId: string): Promise<{ status: string; deleted_conversation_id: string }> {
+  const res = await fetch(`${API_BASE}/conversations/${conversationId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete conversation');
+  return res.json();
+}
+
+// --- Saved Lessons ---
+
+export async function fetchSavedLessons(searchQuery?: string, category?: string): Promise<SavedLessonItem[]> {
+  const params = new URLSearchParams();
+  if (searchQuery && searchQuery.trim()) params.append('q', searchQuery.trim());
+  if (category && category.trim() && category.trim().toLowerCase() !== 'all') params.append('category', category.trim());
+  const queryString = params.toString() ? `?${params.toString()}` : '';
+
+  const res = await fetch(`${API_BASE}/saved${queryString}`);
   if (!res.ok) throw new Error('Failed to fetch saved lessons');
   return res.json();
 }
 
+export async function fetchSavedLessonDetail(lessonId: string): Promise<SavedLessonItem> {
+  const res = await fetch(`${API_BASE}/saved/${lessonId}`);
+  if (!res.ok) throw new Error('Failed to fetch saved lesson');
+  return res.json();
+}
+
 export async function saveLesson(
-  item: Omit<SavedLessonItem, 'id' | 'saved_at'>
-): Promise<{ status: string; id: string }> {
+  item: SavedLessonCreate
+): Promise<SavedLessonItem> {
   const res = await fetch(`${API_BASE}/saved`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...item, id: '', saved_at: new Date().toISOString() }),
+    body: JSON.stringify(item),
   });
   if (!res.ok) throw new Error('Failed to save lesson');
   return res.json();
 }
+
+export async function deleteSavedLesson(lessonId: string): Promise<{ status: string; deleted_lesson_id: string }> {
+  const res = await fetch(`${API_BASE}/saved/${lessonId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete saved lesson');
+  return res.json();
+}
+
+// --- Voice STT & TTS ---
 
 export async function transcribeAudio(audioBlob: Blob, language = 'te'): Promise<STTResponse> {
   const formData = new FormData();
@@ -104,6 +169,8 @@ export async function synthesizeTTS(text: string, language = 'te', speed = 1.0):
   if (!res.ok) throw new Error('Failed to synthesize speech');
   return res.json();
 }
+
+// --- Curriculum RAG ---
 
 export async function fetchCurriculumDocuments(): Promise<CurriculumDocumentSummary[]> {
   const res = await fetch(`${API_BASE}/curriculum/documents`);

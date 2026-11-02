@@ -30,6 +30,9 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({
         title: query,
         category: 'Computer Science',
         key_points: explanation.exam_ready_answer.slice(0, 160) + '...',
+        full_explanation: explanation,
+        curriculum_sources: explanation.curriculum_sources,
+        tags: explanation.technical_terms?.slice(0, 3).join(', ') || '',
       });
       setIsSaved(true);
       setSaveSuccessMessage(true);

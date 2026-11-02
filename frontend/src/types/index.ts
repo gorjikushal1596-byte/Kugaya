@@ -4,8 +4,14 @@ export interface UserProfile {
   base_language: string;
   dialect: string;
   speaking_mode: 'bilingual' | 'immersion';
+  code_mixing_style?: string; // 'balanced_50_50' | 'indic_heavy' | 'english_heavy'
+  explanation_complexity?: string; // 'beginner' | 'intermediate' | 'exam_rigorous'
+  technical_terminology_mode?: string; // 'english_standard' | 'vernacular_glossary'
+  audio_playback_auto?: boolean;
+  speech_playback_speed?: number;
   streak_days: number;
   points: number;
+  daily_goal_minutes?: number;
 }
 
 export interface CurriculumGroundingSource {
@@ -71,6 +77,7 @@ export interface ConversationSummary {
   topic: string;
   language: string;
   message_count: number;
+  last_message_snippet?: string;
   created_at: string;
   updated_at: string;
 }
@@ -87,10 +94,32 @@ export interface ConversationDetail {
 
 export interface SavedLessonItem {
   id: string;
+  conversation_id?: string;
   title: string;
   category: string;
   key_points: string;
+  full_explanation?: ExplanationCards;
+  curriculum_sources?: CurriculumGroundingSource[];
+  tags?: string;
   saved_at: string;
+}
+
+export interface SavedLessonCreate {
+  id?: string;
+  conversation_id?: string;
+  title: string;
+  category?: string;
+  key_points: string;
+  full_explanation?: ExplanationCards;
+  curriculum_sources?: CurriculumGroundingSource[];
+  tags?: string;
+}
+
+export interface DataPurgeResponse {
+  status: string;
+  conversations_deleted: number;
+  saved_lessons_deleted: number;
+  message: string;
 }
 
 export interface STTResponse {
