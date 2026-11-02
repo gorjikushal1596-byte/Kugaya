@@ -91,11 +91,11 @@ export async function transcribeAudio(audioBlob: Blob, language = 'te'): Promise
   return res.json();
 }
 
-export async function synthesizeTTS(text: string, language = 'te'): Promise<TTSResponse> {
+export async function synthesizeTTS(text: string, language = 'te', speed = 1.0): Promise<TTSResponse> {
   const res = await fetch(`${API_BASE}/voice/tts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, language }),
+    body: JSON.stringify({ text, language, speed }),
   });
   if (!res.ok) throw new Error('Failed to synthesize speech');
   return res.json();

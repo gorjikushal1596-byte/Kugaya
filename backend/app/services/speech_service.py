@@ -1,5 +1,6 @@
 import logging
 import time
+import base64
 from typing import Optional, Dict
 import httpx
 
@@ -30,13 +31,17 @@ ALLOWED_MIME_TYPES = {
     "audio/flac", "audio/aac", "audio/m4a", "audio/mp4"
 }
 
+# Supported Voices for Timbre v2.5
+TIMBRE_VOICES = {
+    "female": "Nalini",
+    "male": "Deepak"
+}
+
 class GnaniSpeechService:
     """
-    Production Speech-to-Text adapter for Gnani AI Prisma v2.5.
-    - Base URL: https://api.vachana.ai/stt/v3
-    - Header: X-API-Key-ID: <GNANI_API_KEY>
-    - Form-data: audio_file, language_code
-    - Handles code-mixed Indic speech (Tenglish, Hinglish, Tanglish, Kanglish).
+    Unified speech service for Gnani AI:
+    - Speech-to-Text: Gnani Prisma v2.5 (https://api.vachana.ai/stt/v3)
+    - Text-to-Speech: Gnani Timbre v2.5 (https://api.vachana.ai/api/v1/tts/inference)
     """
 
     def __init__(self):
@@ -44,13 +49,23 @@ class GnaniSpeechService:
         self.prisma_url = settings.GNANI_PRISMA_STT_URL
         self.timbre_url = settings.GNANI_TIMBRE_TTS_URL
         self.timeout = settings.GNANI_TIMEOUT_SECONDS
-        self.mock_fallback = settings.GNANI_MOCK_FALLBACK or not bool(self.api_key and self.api_key.strip() != "your_gnani_api_key_here")
+        self.default_voice = settings.GNANI_DEFAULT_VOICE
+        self.mock_fallback = settings.GNANI_MOCK_FALLBACK or not bool(
+            self.api_key and self.api_key.strip() not in ("", "your_gnani_api_key_here")
+        )
 
     def resolve_language_code(self, lang: Optional[str]) -> str:
         if not lang:
             return "te-IN"
         key = lang.strip().lower()
         return LANGUAGE_CODE_MAP.get(key, "te-IN")
+
+    def resolve_voice(self, voice_gender: Optional[str], requested_voice: Optional[str] = None) -> str:
+        if requested_voice and requested_voice.strip():
+            return requested_voice.strip()
+        if voice_gender and voice_gender.lower() == "male":
+            return TIMBRE_VOICES["male"]
+        return TIMBRE_VOICES["female"]
 
     async def transcribe_audio(
         self,
@@ -62,7 +77,6 @@ class GnaniSpeechService:
         """
         Validates audio and sends to Gnani AI Prisma v2.5.
         """
-        # 1. Validation checks
         if not audio_bytes or len(audio_bytes) < 32:
             raise ValueError("Audio payload is empty or too short for processing.")
 
@@ -71,7 +85,6 @@ class GnaniSpeechService:
 
         lang_code = self.resolve_language_code(language)
 
-        # 2. Mock mode if unconfigured
         if self.mock_fallback:
             logger.info("Gnani Prisma STT: Operating in mock mode.")
             return STTResponse(
@@ -81,12 +94,10 @@ class GnaniSpeechService:
                 is_mock=True
             )
 
-        # 3. Live call to Gnani Prisma v2.5
         headers = {
             "X-API-Key-ID": self.api_key,
         }
 
-        # Determine proper extension
         ext = "wav"
         if "webm" in content_type:
             ext = "webm"
@@ -103,7 +114,6 @@ class GnaniSpeechService:
             "model": "prisma-v2.5"
         }
 
-        start_time = time.time()
         attempt = 0
         max_attempts = 2
 
@@ -116,11 +126,8 @@ class GnaniSpeechService:
                     result = resp.json()
 
                     transcript = result.get("transcript") or result.get("transcription") or ""
-                    # Handle empty transcript if speech was silent
-                    if not transcript.strip():
-                        # Check nested keys or alternative response shapes
-                        if "data" in result and isinstance(result["data"], dict):
-                            transcript = result["data"].get("transcript", "")
+                    if not transcript.strip() and "data" in result and isinstance(result["data"], dict):
+                        transcript = result["data"].get("transcript", "")
 
                     return STTResponse(
                         transcription=transcript.strip(),
@@ -132,7 +139,6 @@ class GnaniSpeechService:
                 logger.error(f"Gnani Prisma STT attempt {attempt}/{max_attempts} error: {e}")
                 if attempt >= max_attempts:
                     if settings.GNANI_MOCK_FALLBACK:
-                        logger.warning("Failing over to offline fallback mock.")
                         return STTResponse(
                             transcription="Pointer dereferencing ante enti Kugaya?",
                             language=lang_code,
@@ -145,15 +151,23 @@ class GnaniSpeechService:
         self,
         text: str,
         language: str = "te",
-        voice_gender: str = "female"
+        voice_gender: str = "female",
+        speed: float = 1.0,
+        voice_name: Optional[str] = None
     ) -> TTSResponse:
         """
-        Synthesizes natural Indic audio via Gnani Timbre v2.5.
+        Synthesizes natural Indic speech using Gnani Timbre v2.5.
+        Returns base64-encoded WAV with duration estimation.
         """
+        if not text or not text.strip():
+            raise ValueError("Text payload cannot be empty for speech synthesis.")
+
+        clean_text = text.strip()
         lang_code = self.resolve_language_code(language)
+        voice = self.resolve_voice(voice_gender, voice_name)
 
         if self.mock_fallback:
-            # Valid 44-byte silent WAV header for browser audio element compatibility
+            logger.info("Gnani Timbre TTS: Operating in mock mode.")
             mock_wav_b64 = "UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="
             return TTSResponse(
                 audio_base64=mock_wav_b64,
@@ -165,31 +179,58 @@ class GnaniSpeechService:
             "X-API-Key-ID": self.api_key,
             "Content-Type": "application/json"
         }
+
         payload = {
-            "text": text,
-            "language_code": lang_code,
-            "gender": voice_gender,
-            "audio_format": "wav"
+            "text": clean_text,
+            "voice": voice,
+            "model": "timbre-v2.5",
+            "language": lang_code,
+            "speed": max(0.5, min(2.0, float(speed))),
+            "audio_config": {
+                "encoding": "linear_pcm",
+                "container": "wav",
+                "num_channels": 1,
+                "sample_rate": 24000,
+                "sample_width": 2
+            }
         }
 
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.post(self.timbre_url, headers=headers, json=payload)
-                if resp.status_code == 200:
-                    data = resp.json()
+        attempt = 0
+        max_attempts = 2
+
+        while attempt < max_attempts:
+            attempt += 1
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    resp = await client.post(self.timbre_url, headers=headers, json=payload)
+                    resp.raise_for_status()
+
+                    # Gnani Timbre returns raw WAV binary with 'RIFF' header
+                    audio_bytes = resp.content
+                    if not audio_bytes.startswith(b"RIFF"):
+                        # If raw PCM, encapsulate or decode
+                        logger.warning("Gnani Timbre response did not start with standard RIFF header.")
+
+                    audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+                    
+                    # Estimate duration based on PCM 24000Hz 16-bit mono (48,000 bytes per second)
+                    duration_sec = round(max(0.5, (len(audio_bytes) - 44) / 48000), 2)
+
                     return TTSResponse(
-                        audio_base64=data.get("audio_content", "") or data.get("audio", ""),
-                        duration_seconds=data.get("duration", 3.0),
+                        audio_base64=audio_b64,
+                        duration_seconds=duration_sec,
                         is_mock=False
                     )
-        except Exception as e:
-            logger.warning(f"Gnani Timbre TTS live call failed ({e}); falling back to mock audio.")
-
-        mock_wav_b64 = "UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="
-        return TTSResponse(
-            audio_base64=mock_wav_b64,
-            duration_seconds=3.0,
-            is_mock=True
-        )
+            except Exception as e:
+                logger.error(f"Gnani Timbre TTS attempt {attempt}/{max_attempts} error: {e}")
+                if attempt >= max_attempts:
+                    if settings.GNANI_MOCK_FALLBACK:
+                        mock_wav_b64 = "UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="
+                        return TTSResponse(
+                            audio_base64=mock_wav_b64,
+                            duration_seconds=3.0,
+                            is_mock=True
+                        )
+                    raise
 
 gnani_speech_service = GnaniSpeechService()

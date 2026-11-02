@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { ExplanationCards } from '../types';
-import { synthesizeTTS, saveLesson } from '../services/api';
+import { saveLesson } from '../services/api';
+import { NeonAudioPlayer } from './NeonAudioPlayer';
 
 interface ExplanationStreamProps {
   query: string;
@@ -19,25 +20,9 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({
   latencyMs,
   onAskFollowUp,
 }) => {
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState(false);
   const [followUpText, setFollowUpText] = useState('');
-
-  const handlePlayVoice = async () => {
-    try {
-      setIsPlayingAudio(true);
-      const res = await synthesizeTTS(explanation.simple_explanation, language.toLowerCase().slice(0, 2));
-      if (res.audio_base64 && res.audio_base64.length > 20) {
-        const audio = new Audio(`data:audio/wav;base64,${res.audio_base64}`);
-        audio.play().catch(() => {});
-      }
-    } catch (e) {
-      console.error('Audio synthesis failed:', e);
-    } finally {
-      setTimeout(() => setIsPlayingAudio(false), 2500);
-    }
-  };
 
   const handleSave = async () => {
     try {
@@ -64,7 +49,7 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({
 
   return (
     <div className="w-full space-y-4">
-      {/* Student Question Card */}
+      {/* Student Question Card with Listen All Voice Action */}
       <div className="p-4 rounded-2xl bg-surface-container-high/60 border border-primary-container/20 backdrop-blur-md shadow-md">
         <div className="flex items-center justify-between text-xs text-on-surface-variant mb-2">
           <span className="flex items-center gap-1.5 text-primary font-semibold">
@@ -83,6 +68,18 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({
           </div>
         </div>
         <p className="text-base font-semibold text-on-surface">{query}</p>
+
+        {/* Listen to Complete Vernacular Answer */}
+        <div className="mt-3 pt-3 border-t border-surface-container-highest/60 flex items-center justify-between">
+          <span className="text-xs text-on-surface-variant font-medium">Gnani Timbre v2.5 Voice:</span>
+          <div className="max-w-xs">
+            <NeonAudioPlayer
+              textToSpeak={`${explanation.simple_explanation}. Here is a real life analogy: ${explanation.real_life_analogy}`}
+              language={language}
+              label="Listen Full Breakdown"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Card 1: Simple Vernacular Explanation (Code-Mixed) */}
@@ -95,15 +92,13 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({
               1. Simple Explanation ({language} + Eng)
             </h3>
           </div>
-          <button
-            onClick={handlePlayVoice}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-container/15 hover:bg-primary-container/30 text-primary text-xs font-semibold transition-all active:scale-95 border border-primary-container/40"
-          >
-            <span className="material-symbols-outlined text-[16px] fill-1">
-              {isPlayingAudio ? 'graphic_eq' : 'volume_up'}
-            </span>
-            <span>{isPlayingAudio ? 'Playing...' : 'Voice Playback'}</span>
-          </button>
+          <div>
+            <NeonAudioPlayer
+              textToSpeak={explanation.simple_explanation}
+              language={language}
+              label="Listen"
+            />
+          </div>
         </div>
         <p className="text-sm md:text-base text-on-surface leading-relaxed whitespace-pre-line">
           {explanation.simple_explanation}
@@ -113,11 +108,20 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({
       {/* Card 2: Cultural / Real-life Analogy */}
       <div className="p-5 rounded-2xl bg-surface-container-low border border-secondary/30 shadow-purple-glow relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-secondary-container/20 rounded-full blur-2xl pointer-events-none"></div>
-        <div className="flex items-center gap-2 mb-3">
-          <span className="material-symbols-outlined text-secondary text-lg">lightbulb</span>
-          <h3 className="text-sm font-bold tracking-wide text-secondary uppercase">
-            2. Real-Life Analogy
-          </h3>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-secondary text-lg">lightbulb</span>
+            <h3 className="text-sm font-bold tracking-wide text-secondary uppercase">
+              2. Real-Life Analogy
+            </h3>
+          </div>
+          <div>
+            <NeonAudioPlayer
+              textToSpeak={explanation.real_life_analogy}
+              language={language}
+              label="Listen Analogy"
+            />
+          </div>
         </div>
         <p className="text-sm md:text-base text-on-surface/90 leading-relaxed italic">
           "{explanation.real_life_analogy}"
@@ -134,7 +138,10 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({
         </div>
         <div className="space-y-2">
           {explanation.technical_terms.map((term, i) => (
-            <div key={i} className="p-2.5 rounded-xl bg-surface-container-high/50 border border-outline-variant/30 flex items-start gap-2 text-xs md:text-sm">
+            <div
+              key={i}
+              className="p-2.5 rounded-xl bg-surface-container-high/50 border border-outline-variant/30 flex items-start gap-2 text-xs md:text-sm"
+            >
               <span className="material-symbols-outlined text-primary text-sm mt-0.5">check_circle</span>
               <span className="text-on-surface font-medium">{term}</span>
             </div>
@@ -179,32 +186,24 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({
       {/* Card 5: Comprehension Check (Muse Spark Open) */}
       {explanation.comprehension_check && (
         <div className="p-5 rounded-2xl bg-surface-container-low border border-surface-tint/40 shadow-neon">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="material-symbols-outlined text-surface-tint text-lg">quiz</span>
-            <h3 className="text-sm font-bold tracking-wide text-surface-tint uppercase">
-              5. Comprehension Check
-            </h3>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-surface-tint text-lg">quiz</span>
+              <h3 className="text-sm font-bold tracking-wide text-surface-tint uppercase">
+                5. Comprehension Check
+              </h3>
+            </div>
+            <div>
+              <NeonAudioPlayer
+                textToSpeak={explanation.comprehension_check}
+                language={language}
+                label="Listen Quiz"
+              />
+            </div>
           </div>
           <p className="text-xs md:text-sm text-on-surface leading-relaxed">
             {explanation.comprehension_check}
           </p>
-        </div>
-      )}
-
-      {/* RAG Curriculum Grounding Reference Citation */}
-      {explanation.curriculum_sources && explanation.curriculum_sources.length > 0 && (
-        <div className="p-4 rounded-2xl bg-surface-container-high/40 border border-surface-tint/30 space-y-2">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-surface-tint uppercase">
-            <span className="material-symbols-outlined text-sm">verified_user</span>
-            <span>Curriculum Grounded Source (RAG)</span>
-          </div>
-          {explanation.curriculum_sources.map((src, idx) => (
-            <div key={idx} className="text-xs text-on-surface-variant bg-surface-container-lowest p-2.5 rounded-xl border border-outline-variant/20">
-              <span className="font-semibold text-on-surface">{src.document_title}</span> — Chapter: {src.chapter}
-              {src.page_number && ` (p. ${src.page_number})`}
-              <p className="mt-1 text-[11px] italic text-on-surface-variant/80">"{src.excerpt}"</p>
-            </div>
-          ))}
         </div>
       )}
 

@@ -118,12 +118,18 @@ async def speech_to_text(
 
 @router.post("/voice/tts", response_model=TTSResponse)
 async def text_to_speech(req: TTSRequest):
-    tts_res = await gnani_speech_service.synthesize_speech(
-        text=req.text,
-        language=req.language or "te",
-        voice_gender=req.voice_gender or "female"
-    )
-    return tts_res
+    try:
+        tts_res = await gnani_speech_service.synthesize_speech(
+            text=req.text,
+            language=req.language or "te",
+            voice_gender=req.voice_gender or "female",
+            speed=req.speed or 1.0
+        )
+        return tts_res
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Gnani TTS service error: {str(e)}")
 
 # Saved Lessons Endpoints
 @router.get("/saved", response_model=list[SavedLessonItem])

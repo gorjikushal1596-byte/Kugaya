@@ -25,9 +25,10 @@ class Settings(BaseSettings):
     # Gnani AI Speech Integrations (Prisma v2.5 STT & Timbre v2.5 TTS)
     GNANI_API_KEY: Optional[str] = None
     GNANI_PRISMA_STT_URL: str = "https://api.vachana.ai/stt/v3"
-    GNANI_TIMBRE_TTS_URL: str = "https://api.vachana.ai/tts/v3"
+    GNANI_TIMBRE_TTS_URL: str = "https://api.vachana.ai/api/v1/tts/inference"
     GNANI_MOCK_FALLBACK: bool = False
     GNANI_TIMEOUT_SECONDS: float = 25.0
+    GNANI_DEFAULT_VOICE: str = "Nalini"
     MAX_AUDIO_SIZE_BYTES: int = 25 * 1024 * 1024  # 25 MB
     
     # CORS
