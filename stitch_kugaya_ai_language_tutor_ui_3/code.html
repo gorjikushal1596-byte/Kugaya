@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_tab" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100vw;margin:0;padding:0;background-color:#10131c;}body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "on-surface-variant": "#bac9cc", "on-surface": "#e0e2ef", "on-secondary-fixed": "#260059", "background": "#10131c", "surface-bright": "#363943", "secondary-fixed": "#ebdcff", "error-container": "#93000a", "surface-tint": "#00daf3", "inverse-primary": "#006875", "outline": "#849396", "surface-variant": "#32343f", "on-tertiary": "#002a77", "primary-container": "#00e5ff", "on-primary-fixed-variant": "#004f58", "on-primary": "#00363d", "surface-dim": "#10131c", "on-background": "#e0e2ef", "primary-fixed": "#9cf0ff", "on-secondary-fixed-variant": "#5b07c1", "on-tertiary-fixed": "#00174b", "on-tertiary-fixed-variant": "#003ea7", "on-error": "#690005", "tertiary-container": "#c2cfff", "on-tertiary-container": "#004ecf", "primary": "#c3f5ff", "surface-container-low": "#181b25", "surface-container": "#1c1f29", "on-secondary": "#40008c", "surface": "#10131c", "surface-container-highest": "#32343f", "on-error-container": "#ffdad6", "primary-fixed-dim": "#00daf3", "surface-container-high": "#272a34", "tertiary-fixed-dim": "#b4c5ff", "inverse-surface": "#e0e2ef", "surface-container-lowest": "#0b0e17", "secondary-container": "#5b07c1", "outline-variant": "#3b494c", "secondary": "#d3bbff", "error": "#ffb4ab", "on-primary-fixed": "#001f24", "on-secondary-container": "#c5a6ff", "inverse-on-surface": "#2d303a", "tertiary": "#e9ecff", "secondary-fixed-dim": "#d3bbff", "on-primary-container": "#00626e", "tertiary-fixed": "#dbe1ff" }, borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, spacing: { "space-xs": "0.25rem", "space-md": "1rem", "space-lg": "1.5rem", "space-xl": "2.5rem", "margin": "1rem", "margin-tablet": "2rem", "gutter": "1.25rem", "space-sm": "0.5rem", "margin-desktop": "3rem", "gutter-desktop": "2rem" }, fontFamily: { "body-md": ["Plus Jakarta Sans"], "label-md": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"], "body-lg": ["Plus Jakarta Sans"], "label-lg": ["Plus Jakarta Sans"], "label-sm": ["Plus Jakarta Sans"], "display-hero-mobile": ["Plus Jakarta Sans"], "display-hero": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "headline-sm": ["Plus Jakarta Sans"], "body-sm": ["Plus Jakarta Sans"], "headline-lg-mobile": ["Plus Jakarta Sans"] }, fontSize: { "body-md": ["16px", { lineHeight: "24px", fontWeight: "400" }], "label-md": ["12px", { lineHeight: "16px", letterSpacing: "0.04em", fontWeight: "600" }], "headline-md": ["24px", { lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "600" }], "body-lg": ["18px", { lineHeight: "28px", fontWeight: "400" }], "label-lg": ["14px", { lineHeight: "18px", letterSpacing: "0.02em", fontWeight: "600" }], "label-sm": ["10px", { lineHeight: "14px", letterSpacing: "0.06em", fontWeight: "700" }], "display-hero-mobile": ["34px", { lineHeight: "42px", letterSpacing: "-0.01em", fontWeight: "800" }], "display-hero": ["48px", { lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "800" }], "headline-lg": ["32px", { lineHeight: "40px", letterSpacing: "-0.015em", fontWeight: "700" }], "headline-sm": ["20px", { lineHeight: "28px", fontWeight: "600" }], "body-sm": ["14px", { lineHeight: "20px", fontWeight: "400" }], "headline-lg-mobile": ["26px", { lineHeight: "34px", letterSpacing: "-0.01em", fontWeight: "700" }] } } } };</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface text-on-surface flex flex-col min-h-screen selection:bg-primary-container selection:text-on-primary-container"><header class="fixed top-0 w-full z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.3)]"><div class="h-16 px-margin flex items-center justify-between gap-space-sm"><div class="flex items-center gap-space-sm min-w-0"><img alt="Kugaya Brand Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1UsnM7qxT33dhGxLZV54-CCMUvWnJkkT3IwdHg_IrngfOidapGft4z-v9jfBFUkPetxxJ2inN0BGdt6GZrTUQJvsdkOr-RkJNQ9WGzWCNR9IsXP323AfB_-Kb_kse7BxBPcTaEH6N5mEyWyApE5poBlO55oJz9ej5mSB14EaYlxxMz4U8tfpDYYkAFoPsHJAccYrQ3KlTAgaMdpbONuBQ3gT6ErvGEyEW8NnyrfwXh2PQ"/><div class="flex flex-col truncate"><span class="font-label-lg text-label-lg tracking-wider font-extrabold text-primary truncate">KUGAYA</span><span class="font-label-sm text-label-sm text-on-surface-variant -mt-0.5 tracking-normal truncate">AI Companion</span></div></div><div class="flex items-center gap-space-sm shrink-0"><div class="hidden xs:flex sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high/70 backdrop-blur-md shadow-[0_0_12px_rgba(0,229,255,0.08)]"><span class="w-1.5 h-1.5 rounded-full bg-primary-container shadow-[0_0_6px_#00e5ff]"></span><span class="font-label-sm text-label-sm text-on-surface font-semibold">🇮🇳 Telugu + Eng</span></div><button class="flex items-center justify-center p-0.5 rounded-full ring-1 ring-primary-fixed-dim/30 shadow-[0_0_10px_rgba(0,229,255,0.15)] min-w-[44px] min-h-[44px]"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_-iifHVLOsVb3UA1H6e6ygfTWfooT4nWqf4NnCbOfv7iEkkQtaeiudzHQcSco_1tdMmhKZ4RnLK1QN13z0BxjZchxeI6ORMZF8UQEV4XWN7hdcGEktDb5mrLUVD1S8qt9l_XxUBcTDiN-yBn9QcNt7N55z6NosOEyxDmXFX78rkJpAX3NDJCZpEjKdzX6yRhVpb2R957iGHyvGUbObbRcPHP2iB9uWSxPYOZp3pWk"/></button></div></div></header><main class="flex flex-col relative w-full pt-16 pb-24 bg-surface min-h-screen"><div class="flex flex-col w-full relative select-none">
+<!-- Ambient Atmospheric Radiant Glows -->
+<div class="absolute -top-12 left-1/2 -translate-x-1/2 w-80 h-80 rounded-full bg-primary-container/10 blur-[80px] pointer-events-none"></div>
+<div class="absolute top-48 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-secondary-container/20 blur-[90px] pointer-events-none"></div>
+<!-- Session Navigation & Mode Status Header -->
+<div class="flex items-center justify-between px-margin pt-space-xs pb-space-sm z-10">
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs">
+<span class="inline-block w-2 h-2 rounded-full bg-primary-container shadow-[0_0_8px_#00e5ff] animate-ping"></span>
+<h1 class="font-headline-sm text-headline-sm text-on-surface tracking-tight font-bold truncate">Voice Tutor Session</h1>
+</div>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="material-symbols-outlined text-[14px] text-primary-fixed-dim">translate</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-medium">Telugu + English (Tenglish)</span>
+</div>
+</div>
+<div class="flex items-center gap-space-xs">
+<button aria-label="Audio settings" class="w-10 h-10 rounded-full bg-surface-container-high/80 hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors shadow-sm" type="button">
+<span class="material-symbols-outlined text-[20px]">graphic_eq</span>
+</button>
+<a aria-label="Exit to Text Mode" class="w-10 h-10 rounded-full bg-surface-container-high/80 hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors shadow-sm" data-path="ai-tutor-session" href="#">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</a>
+</div>
+</div>
+<!-- Center Stage: Futuristic Neural Sound Orb Visualizer -->
+<div class="relative flex flex-col items-center justify-center py-space-md min-h-[290px] overflow-hidden">
+<!-- Concentric Ambient Sound Wave Rings -->
+<div class="absolute w-64 h-64 rounded-full bg-primary-container/5 border border-primary-container/20 animate-[ping_4s_cubic-bezier(0,0,0.2,1)_infinite]"></div>
+<div class="absolute w-52 h-52 rounded-full bg-secondary-container/10 border border-secondary/25 animate-[pulse_2.4s_ease-in-out_infinite]"></div>
+<div class="absolute w-40 h-40 rounded-full bg-primary-container/10 shadow-[0_0_36px_rgba(0,229,255,0.25)]"></div>
+<!-- Active Floating Interactive Orb -->
+<div class="relative z-10 w-28 h-28 rounded-full bg-gradient-to-tr from-surface-container-lowest via-secondary-container to-primary-container/90 p-[2px] shadow-[0_0_30px_rgba(0,229,255,0.45)] transition-transform duration-300" id="neural-orb">
+<div class="w-full h-full rounded-full bg-surface-container-lowest flex items-center justify-center overflow-hidden relative">
+<!-- Inner Core Dynamic Lighting -->
+<div class="absolute inset-0 bg-[radial-gradient(circle_at_35%_30%,rgba(0,229,255,0.7),rgba(91,7,193,0.3)_60%,transparent_85%)] opacity-90"></div>
+<div class="absolute w-12 h-12 rounded-full bg-primary-container/40 blur-md"></div>
+<!-- Center Sound Oscillations (Mini Waveform inside Core) -->
+<div class="relative z-10 flex items-center gap-[3px] h-8">
+<span class="w-[3px] h-3 bg-primary rounded-full animate-[pulse_0.8s_ease-in-out_infinite]"></span>
+<span class="w-[3px] h-6 bg-primary-container rounded-full animate-[pulse_1.1s_ease-in-out_infinite]"></span>
+<span class="w-[3px] h-8 bg-tertiary-container rounded-full animate-[pulse_0.7s_ease-in-out_infinite]"></span>
+<span class="w-[3px] h-5 bg-primary-container rounded-full animate-[pulse_1.3s_ease-in-out_infinite]"></span>
+<span class="w-[3px] h-2 bg-primary rounded-full animate-[pulse_0.9s_ease-in-out_infinite]"></span>
+</div>
+</div>
+</div>
+<!-- Orb Status Pill & Live Elapsed Timer -->
+<div class="mt-space-lg flex items-center gap-space-sm z-10">
+<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-high/90 backdrop-blur-md shadow-[0_0_16px_rgba(0,229,255,0.12)]">
+<span class="w-2 h-2 rounded-full bg-primary-container animate-pulse shadow-[0_0_6px_#00e5ff]"></span>
+<span class="font-label-md text-label-md text-primary font-semibold tracking-wide" id="listening-status">Kugaya is listening...</span>
+</div>
+<div class="px-2.5 py-1.5 rounded-full bg-surface-container-low font-label-md text-label-md text-on-surface-variant font-mono">
+<span id="session-timer">00:14</span>
+</div>
+</div>
+</div>
+<!-- Real-Time Conversational Transcriptions Stack -->
+<div class="px-margin flex flex-col gap-space-md relative z-10">
+<!-- User Live Speech-to-Text Transcription Preview Card -->
+<div class="w-full rounded-xl bg-surface-container/90 backdrop-blur-xl p-space-md shadow-[0_12px_32px_-8px_rgba(0,0,0,0.6)] relative group">
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[18px] text-primary-fixed-dim">mic</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Your Question (Live)</span>
+</div>
+<button aria-label="Edit Transcript" class="p-1 rounded-lg bg-surface-container-high/60 hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+</button>
+</div>
+<div class="mt-1">
+<p class="font-body-md text-body-md text-on-surface leading-relaxed">
+          “Bro, <span class="px-2 py-0.5 rounded-full bg-secondary-container/30 text-secondary font-medium font-body-sm text-body-sm">binary search tree</span> lo balancing enduku important? Worst case time complexity entha avthundi?...”
+        </p>
+</div>
+<div class="flex items-center justify-between mt-space-sm pt-space-xs text-on-surface-variant">
+<span class="font-label-sm text-label-sm text-outline">Confidence: 98% • Tenglish Dialect</span>
+<div class="flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+<span class="font-label-sm text-label-sm text-primary-fixed-dim">Streaming</span>
+</div>
+</div>
+</div>
+<!-- AI Live Synthesized Audio Response Stream -->
+<div class="w-full rounded-xl bg-surface-container-high/70 backdrop-blur-xl p-space-md shadow-[0_16px_36px_rgba(0,0,0,0.5)] relative overflow-hidden">
+<!-- Accent side bar -->
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary-container via-secondary to-primary-container"></div>
+<div class="flex items-center justify-between pb-space-xs pl-1">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[18px] text-secondary">smart_toy</span>
+<span class="font-label-sm text-label-sm text-secondary uppercase tracking-wider font-bold">Kugaya Voice Stream</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="w-1.5 h-3 bg-secondary rounded-full animate-bounce"></span>
+<span class="w-1.5 h-4 bg-primary-container rounded-full animate-bounce [animation-delay:0.15s]"></span>
+<span class="w-1.5 h-2 bg-secondary rounded-full animate-bounce [animation-delay:0.3s]"></span>
+</div>
+</div>
+<div class="mt-1 pl-1">
+<p class="font-body-md text-body-md text-primary font-medium leading-relaxed">
+          “Balanced BST lo height <span class="px-1.5 py-0.5 rounded bg-surface-container text-primary-container font-mono text-body-sm">O(log N)</span> untundi Priya, lekapothe skewed tree aipoyi <span class="px-1.5 py-0.5 rounded bg-surface-container text-secondary font-mono text-body-sm">O(N)</span> complexity ki padipotundi...”
+        </p>
+</div>
+<div class="mt-space-sm pl-1 pt-space-xs flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-primary-fixed-dim">volume_up</span> 
+          Telugu Neural Voice (Voice Engine v3.2)
+        </span>
+<button class="font-label-sm text-label-sm text-secondary hover:text-primary-container font-semibold transition-colors flex items-center gap-0.5" type="button">
+          Breakdown <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+</button>
+</div>
+</div>
+<!-- Quick Conceptual Anchors Mini-Grid -->
+<div class="grid grid-cols-2 gap-space-sm pt-space-xs">
+<div class="flex items-center gap-2 p-2.5 rounded-lg bg-surface-container-low/80">
+<span class="material-symbols-outlined text-[18px] text-primary-container">account_tree</span>
+<div class="flex flex-col min-w-0">
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">Topic Hook</span>
+<span class="font-label-md text-label-md text-on-surface font-semibold truncate">AVL &amp; Red-Black Tree</span>
+</div>
+</div>
+<div class="flex items-center gap-2 p-2.5 rounded-lg bg-surface-container-low/80">
+<span class="material-symbols-outlined text-[18px] text-secondary">timer</span>
+<div class="flex flex-col min-w-0">
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate">Target Complexity</span>
+<span class="font-label-md text-label-md text-on-surface font-semibold truncate">O(log N) Search</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Interactive Voice Controls Hub -->
+<div class="px-margin mt-space-lg flex flex-col items-center gap-space-md z-10">
+<!-- Primary Control Trio -->
+<div class="w-full flex items-center justify-between max-w-xs px-2">
+<!-- Left: Replay Audio Button -->
+<button aria-label="Replay Audio" class="flex flex-col items-center gap-1 text-on-surface-variant hover:text-on-surface transition-colors group" id="btn-replay" type="button">
+<div class="w-12 h-12 rounded-full bg-surface-container-high/90 group-hover:bg-surface-container-highest flex items-center justify-center shadow-md transition-transform group-active:scale-95">
+<span class="material-symbols-outlined text-[22px] text-on-surface">replay_10</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Replay</span>
+</button>
+<!-- Center: Large Glowing Neon Stop/Pause Pulsing Button -->
+<button aria-label="Stop or Pause Mic" class="relative group flex items-center justify-center p-1 rounded-full" id="btn-mic-toggle" type="button">
+<!-- Glowing animated halo -->
+<span class="absolute inset-0 rounded-full bg-primary-container/30 blur-lg group-hover:bg-primary-container/50 animate-pulse"></span>
+<div class="relative w-16 h-16 rounded-full bg-gradient-to-tr from-primary-fixed-dim to-primary-container text-on-primary-container flex items-center justify-center shadow-[0_0_24px_rgba(0,229,255,0.6)] group-active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[32px] text-surface-container-lowest font-bold" id="mic-icon">pause</span>
+</div>
+</button>
+<!-- Right: Switch to Text Workspace Button -->
+<a aria-label="Switch to Text Workspace" class="flex flex-col items-center gap-1 text-on-surface-variant hover:text-on-surface transition-colors group" data-path="ai-tutor-session" href="#">
+<div class="w-12 h-12 rounded-full bg-surface-container-high/90 group-hover:bg-surface-container-highest flex items-center justify-center shadow-md transition-transform group-active:scale-95">
+<span class="material-symbols-outlined text-[22px] text-on-surface">keyboard</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Text Mode</span>
+</a>
+</div>
+<!-- Speech Cadence Speed Selector Pill Strip -->
+<div class="flex items-center gap-2 p-1.5 rounded-full bg-surface-container-low/90 backdrop-blur-md shadow-inner">
+<span class="font-label-sm text-label-sm text-on-surface-variant px-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">speed</span> Speed:
+      </span>
+<button class="speed-btn px-3 py-1 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-all" data-speed="0.75" type="button">0.75x</button>
+<button class="speed-btn px-3 py-1 rounded-full font-label-md text-label-md bg-primary-container text-on-primary-container font-bold shadow-[0_0_8px_rgba(0,229,255,0.4)] transition-all" data-speed="1.0" type="button">1.0x</button>
+<button class="speed-btn px-3 py-1 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-all" data-speed="1.25" type="button">1.25x</button>
+</div>
+<!-- Discreet Hint for Interruption UX -->
+<div class="flex items-center gap-1 text-outline-variant font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[13px]">info</span>
+<span>Tap mic anytime or speak to interrupt naturally</span>
+</div>
+</div>
+<!-- Interactive UI micro-logic -->
+<script>
+    (function() {
+      // Cadence switch handling
+      const speedButtons = document.querySelectorAll('.speed-btn');
+      speedButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          speedButtons.forEach(b => {
+            b.classList.remove('bg-primary-container', 'text-on-primary-container', 'font-bold', 'shadow-[0_0_8px_rgba(0,229,255,0.4)]');
+            b.classList.add('text-on-surface-variant');
+          });
+          btn.classList.add('bg-primary-container', 'text-on-primary-container', 'font-bold', 'shadow-[0_0_8px_rgba(0,229,255,0.4)]');
+          btn.classList.remove('text-on-surface-variant');
+        });
+      });
+
+      // Mic state toggle interaction
+      const micBtn = document.getElementById('btn-mic-toggle');
+      const micIcon = document.getElementById('mic-icon');
+      const statusText = document.getElementById('listening-status');
+      const orb = document.getElementById('neural-orb');
+      let isListening = true;
+
+      micBtn.addEventListener('click', () => {
+        isListening = !isListening;
+        if (!isListening) {
+          micIcon.textContent = 'mic';
+          statusText.textContent = 'Session paused. Tap mic to resume';
+          orb.classList.add('scale-90', 'opacity-60');
+        } else {
+          micIcon.textContent = 'pause';
+          statusText.textContent = 'Kugaya is listening...';
+          orb.classList.remove('scale-90', 'opacity-60');
+        }
+      });
+
+      // Simple runtime timer incrementer
+      let seconds = 14;
+      const timerEl = document.getElementById('session-timer');
+      setInterval(() => {
+        if (isListening) {
+          seconds++;
+          const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+          const secs = (seconds % 60).toString().padStart(2, '0');
+          timerEl.textContent = `${mins}:${secs}`;
+        }
+      }, 1000);
+    })();
+  </script>
+</div></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface/85 backdrop-blur-xl shadow-[0_-4px_24px_rgba(0,0,0,0.6)]" data-active-classes="text-primary-container drop-shadow-[0_0_10px_rgba(0,229,255,0.6)] font-bold"><div class="flex items-center justify-around h-16 px-space-xs"><a class="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] px-2 py-1 text-on-surface-variant hover:text-on-surface transition-colors" data-path="home-dashboard" href="#"><span class="material-symbols-outlined text-[22px]">home</span><span class="font-label-sm text-label-sm mt-0.5">Home</span></a><a class="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] px-2 py-1 text-on-surface-variant hover:text-on-surface transition-colors" data-path="ai-tutor-session" href="#"><span class="material-symbols-outlined text-[22px]">auto_awesome</span><span class="font-label-sm text-label-sm mt-0.5">AI Tutor</span></a><a aria-current="page" class="relative flex flex-col items-center justify-center min-w-[44px] min-h-[44px] px-2 py-1 transition-colors text-primary-container drop-shadow-[0_0_10px_rgba(0,229,255,0.6)] font-bold" data-path="voice-mode-interactive" href="#"><div class="w-9 h-9 rounded-full bg-surface-container-high/90 flex items-center justify-center shadow-[0_0_12px_rgba(0,229,255,0.2)] mb-0.5"><span class="material-symbols-outlined text-[20px] text-primary-fixed-dim">mic</span></div><span class="font-label-sm text-label-sm">Voice</span></a><a class="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] px-2 py-1 text-on-surface-variant hover:text-on-surface transition-colors" data-path="saved-vocabulary-vault" href="#"><span class="material-symbols-outlined text-[22px]">bookmark</span><span class="font-label-sm text-label-sm mt-0.5">Saved</span></a><a class="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] px-2 py-1 text-on-surface-variant hover:text-on-surface transition-colors" data-path="user-profile-and-insights" href="#"><span class="material-symbols-outlined text-[22px]">account_circle</span><span class="font-label-sm text-label-sm mt-0.5">Profile</span></a></div></nav></body></html>
