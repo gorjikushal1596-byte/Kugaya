@@ -1,14 +1,13 @@
 import json
 import logging
+import re
 import time
 from typing import Optional, List
 import httpx
-from pydantic import ValidationError
 
 from app.config import settings
 from app.schemas import ExplanationCards, CurriculumGroundingSource
 from app.services.prompts import KUGAYA_PEDAGOGICAL_SYSTEM_PROMPT
-from app.services.rag_service import curriculum_rag_service
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +16,8 @@ class BasetenMuseSparkClient:
     Dedicated OpenAI-compatible client for Meta Muse Spark Open deployed on Baseten.
     - Base URL: https://inference.baseten.co/v1 (or custom model endpoint)
     - Model: meta-models/muse-spark-open
-    - Supports bounded retries, timeout enforcement, rate-limit resilience, and strict JSON parsing.
+    - Supports bounded retries, timeout enforcement, rate-limit resilience,
+      CoT reasoning token budget allocation, and robust JSON extraction.
     """
 
     def __init__(self):
@@ -28,7 +28,7 @@ class BasetenMuseSparkClient:
         self.max_retries = settings.BASETEN_MAX_RETRIES
 
     def is_configured(self) -> bool:
-        return bool(self.api_key and self.api_key != "your_baseten_api_key_here")
+        return bool(self.api_key and self.api_key.strip() not in ("", "your_baseten_api_key_here"))
 
     async def complete_tutor_inquiry(
         self,
@@ -41,7 +41,7 @@ class BasetenMuseSparkClient:
         Sends the student inquiry and pedagogical context to Muse Spark Open on Baseten.
         """
         if not self.is_configured():
-            logger.warning("Baseten API key is not configured; falling back to offline pedagogical generator.")
+            logger.warning("Baseten API key is not configured; using offline fallback.")
             return self._generate_fallback(query, language, curriculum_context)
 
         # Assemble user prompt with student language and optional curriculum context
@@ -61,6 +61,7 @@ class BasetenMuseSparkClient:
 
         user_content = "\n".join(user_message_parts)
 
+        # Muse Spark Open uses internal reasoning tokens, so allocate ample max_tokens (3072)
         payload = {
             "model": self.model_id,
             "messages": [
@@ -68,8 +69,7 @@ class BasetenMuseSparkClient:
                 {"role": "user", "content": user_content}
             ],
             "temperature": 0.4,
-            "max_tokens": 2048,
-            "response_format": {"type": "json_object"}
+            "max_tokens": 3072
         }
 
         headers = {
@@ -79,7 +79,6 @@ class BasetenMuseSparkClient:
 
         url = f"{self.base_url}/chat/completions"
         attempt = 0
-        last_error = None
 
         while attempt < self.max_retries:
             attempt += 1
@@ -88,7 +87,6 @@ class BasetenMuseSparkClient:
                     resp = await client.post(url, headers=headers, json=payload)
                     
                     if resp.status_code == 429:
-                        # Rate limited: backoff
                         backoff = 2 ** attempt
                         logger.warning(f"Baseten rate limit hit (429). Backing off {backoff}s...")
                         time.sleep(backoff)
@@ -96,10 +94,17 @@ class BasetenMuseSparkClient:
 
                     resp.raise_for_status()
                     data = resp.json()
-                    raw_content = data["choices"][0]["message"]["content"]
+                    message_obj = data["choices"][0]["message"]
+                    raw_content = message_obj.get("content") or ""
                     
-                    # Parse JSON output
-                    parsed = json.loads(raw_content)
+                    # Extract JSON object even if enclosed in markdown code fences
+                    json_match = re.search(r'\{.*\}', raw_content, re.DOTALL)
+                    if json_match:
+                        raw_json = json_match.group(0)
+                        parsed = json.loads(raw_json)
+                    else:
+                        parsed = json.loads(raw_content)
+
                     return ExplanationCards(
                         simple_explanation=parsed.get("simple_explanation", ""),
                         real_life_analogy=parsed.get("real_life_analogy", ""),
@@ -109,10 +114,9 @@ class BasetenMuseSparkClient:
                         curriculum_sources=curriculum_context
                     )
             except Exception as e:
-                last_error = e
-                logger.error(f"Baseten call failed on attempt {attempt}/{self.max_retries}: {e}")
+                logger.error(f"Baseten call attempt {attempt}/{self.max_retries} error: {e}")
 
-        logger.error(f"All {self.max_retries} attempts to call Baseten Muse Spark Open failed. Using robust pedagogical fallback.")
+        logger.error(f"All {self.max_retries} attempts to call Baseten Muse Spark Open failed. Using fallback.")
         return self._generate_fallback(query, language, curriculum_context)
 
     def _generate_fallback(
