@@ -76,7 +76,7 @@ async def update_user_profile(payload: UserProfileUpdate, db: AsyncSession = Dep
     if payload.points is not None:
         user.points = payload.points
         
-    user.updated_at = datetime.datetime.utcnow()
+    user.updated_at = datetime.datetime.now(datetime.timezone.utc)
     await db.commit()
     await db.refresh(user)
 
@@ -133,7 +133,7 @@ async def submit_query(req: TutorInquiryRequest, db: AsyncSession = Depends(get_
         provider="baseten/muse-spark-open",
         latency_ms=latency_ms,
         has_curriculum_grounding=has_grounding,
-        created_at=datetime.datetime.utcnow()
+        created_at=datetime.datetime.now(datetime.timezone.utc)
     )
 
 # --- Conversation Management ---

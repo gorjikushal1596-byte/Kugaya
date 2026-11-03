@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env
+.env.*
+*.pyc
+__pycache__
+venv/
+node_modules/
+frontend/dist/
+frontend/node_modules/
+backend/kugaya.db
+*.db
+*.sqlite3
+.pytest_cache/
+

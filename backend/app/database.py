@@ -12,13 +12,15 @@ AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=As
 
 async def init_db():
     async with engine.begin() as conn:
-        # Enable Foreign Key enforcement in SQLite
-        await conn.execute(text("PRAGMA foreign_keys = ON;"))
+        # Enable Foreign Key enforcement if SQLite
+        if "sqlite" in settings.DATABASE_URL:
+            await conn.execute(text("PRAGMA foreign_keys = ON;"))
         # Create all tables if they don't exist
         await conn.run_sync(Base.metadata.create_all)
 
         # Migrate new columns onto existing tables if missing
-        await _apply_column_migrations(conn)
+        if "sqlite" in settings.DATABASE_URL:
+            await _apply_column_migrations(conn)
         
     # Seed default user if not exists
     async with AsyncSessionLocal() as session:
@@ -38,8 +40,8 @@ async def init_db():
                 streak_days=4,
                 points=1250,
                 daily_goal_minutes=20,
-                created_at=datetime.datetime.utcnow(),
-                updated_at=datetime.datetime.utcnow()
+                created_at=datetime.datetime.now(datetime.timezone.utc),
+                updated_at=datetime.datetime.now(datetime.timezone.utc)
             )
             session.add(default_user)
             await session.commit()

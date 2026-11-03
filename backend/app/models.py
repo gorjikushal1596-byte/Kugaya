@@ -4,6 +4,9 @@ from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 
+def utc_now():
+    return datetime.datetime.now(datetime.timezone.utc)
+
 class User(Base):
     __tablename__ = "users"
     
@@ -20,8 +23,8 @@ class User(Base):
     streak_days = Column(Integer, default=4)
     points = Column(Integer, default=1250)
     daily_goal_minutes = Column(Integer, default=20)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     
     conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
     saved_lessons = relationship("SavedLesson", back_populates="user", cascade="all, delete-orphan")
@@ -37,7 +40,7 @@ class CurriculumDocument(Base):
     file_size_bytes = Column(Integer)
     page_count = Column(Integer, default=1)
     chunk_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     chunks = relationship("CurriculumChunk", back_populates="document", cascade="all, delete-orphan")
 
@@ -63,8 +66,8 @@ class Conversation(Base):
     topic = Column(String, default="Computer Science")
     language = Column(String, default="Telugu")
     dialect = Column(String, default="Andhra & Telangana")
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     user = relationship("User", back_populates="conversations")
     messages = relationship("ConversationMessage", back_populates="conversation", cascade="all, delete-orphan", order_by="ConversationMessage.created_at")
@@ -77,7 +80,7 @@ class ConversationMessage(Base):
     role = Column(String)  # 'user' | 'assistant'
     query = Column(Text)
     language = Column(String, default="Telugu")
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     # 5-Tier Structured Explanation (Assistant only)
     simple_explanation = Column(Text, nullable=True)
@@ -103,6 +106,6 @@ class SavedLesson(Base):
     full_explanation_json = Column(Text, nullable=True)  # JSON-serialized ExplanationCards
     curriculum_sources_json = Column(Text, nullable=True)  # JSON-serialized CurriculumGroundingSource[]
     tags = Column(String, default="")
-    saved_at = Column(DateTime, default=datetime.datetime.utcnow)
+    saved_at = Column(DateTime, default=utc_now)
     
     user = relationship("User", back_populates="saved_lessons")

@@ -1,0 +1,57 @@
+services:
+  # Kugaya Backend API
+  - type: web
+    name: kugaya-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: false
+      - key: AI_PROVIDER
+        value: baseten
+      - key: BASETEN_API_KEY
+        sync: false
+      - key: BASETEN_BASE_URL
+        value: https://inference.baseten.co/v1
+      - key: BASETEN_MODEL_ID
+        value: meta-models/muse-spark-open
+      - key: GNANI_API_KEY
+        sync: false
+      - key: GNANI_PRISMA_STT_URL
+        value: https://api.vachana.ai/stt/v3
+      - key: GNANI_TIMBRE_TTS_URL
+        value: https://api.vachana.ai/api/v1/tts/inference
+      - key: ALLOWED_ORIGINS
+        value: https://kugaya.vercel.app,http://localhost:5173
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:////data/kugaya.db
+    disk:
+      name: kugaya-data
+      mountPath: /data
+      sizeGB: 1
+
+  # Optional Kugaya Frontend Static Site (or deploy on Vercel)
+  - type: web
+    name: kugaya-ui
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: kugaya-api
+          property: host
+

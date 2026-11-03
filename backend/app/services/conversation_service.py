@@ -42,8 +42,8 @@ class ConversationService:
             topic=topic,
             language=language,
             dialect=dialect,
-            created_at=datetime.datetime.utcnow(),
-            updated_at=datetime.datetime.utcnow()
+            created_at=datetime.datetime.now(datetime.timezone.utc),
+            updated_at=datetime.datetime.now(datetime.timezone.utc)
         )
         db.add(conv)
         await db.commit()
@@ -87,8 +87,8 @@ class ConversationService:
             topic=topic,
             language=language,
             dialect=dialect,
-            created_at=datetime.datetime.utcnow(),
-            updated_at=datetime.datetime.utcnow()
+            created_at=datetime.datetime.now(datetime.timezone.utc),
+            updated_at=datetime.datetime.now(datetime.timezone.utc)
         )
         db.add(conv)
         await db.commit()
@@ -131,7 +131,7 @@ class ConversationService:
         if conv:
             if conv.title == "New Conversation" or not conv.title:
                 conv.title = user_query[:40] + ("..." if len(user_query) > 40 else "")
-            conv.updated_at = datetime.datetime.utcnow()
+            conv.updated_at = datetime.datetime.now(datetime.timezone.utc)
 
         # User message
         user_msg = ConversationMessage(
@@ -140,7 +140,7 @@ class ConversationService:
             role="user",
             query=user_query,
             language=language,
-            created_at=datetime.datetime.utcnow()
+            created_at=datetime.datetime.now(datetime.timezone.utc)
         )
         db.add(user_msg)
 
@@ -163,7 +163,7 @@ class ConversationService:
             comprehension_check=explanation.comprehension_check,
             curriculum_sources_json=sources_json,
             latency_ms=latency_ms,
-            created_at=datetime.datetime.utcnow()
+            created_at=datetime.datetime.now(datetime.timezone.utc)
         )
         db.add(asst_msg)
         await db.commit()
@@ -312,7 +312,7 @@ class ConversationService:
             full_explanation_json=full_exp_json,
             curriculum_sources_json=curr_src_json,
             tags=item.tags or "",
-            saved_at=datetime.datetime.utcnow()
+            saved_at=datetime.datetime.now(datetime.timezone.utc)
         )
         db.add(new_lesson)
         await db.commit()
