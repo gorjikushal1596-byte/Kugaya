@@ -133,11 +133,20 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({
 
       {/* Card 3: Key Technical Terms */}
       <div className="p-5 rounded-2xl bg-surface-container-low border border-surface-container-highest shadow-md">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="material-symbols-outlined text-surface-tint text-lg">code</span>
-          <h3 className="text-sm font-bold tracking-wide text-on-surface uppercase">
-            3. English Technical Vocabulary
-          </h3>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-surface-tint text-lg">code</span>
+            <h3 className="text-sm font-bold tracking-wide text-on-surface uppercase">
+              3. English Technical Vocabulary
+            </h3>
+          </div>
+          <div>
+            <NeonAudioPlayer
+              textToSpeak={`Key technical terms: ${explanation.technical_terms.join('. ')}.`}
+              language="en"
+              label="Listen Terms"
+            />
+          </div>
         </div>
         <div className="space-y-2">
           {explanation.technical_terms.map((term, i) => (
@@ -154,26 +163,33 @@ export const ExplanationStream: React.FC<ExplanationStreamProps> = ({
 
       {/* Card 4: Exam-Ready Academic Answer */}
       <div className="p-5 rounded-2xl bg-surface-container-low border border-outline/40 shadow-md">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-amber-300 text-lg">auto_stories</span>
             <h3 className="text-sm font-bold tracking-wide text-amber-200 uppercase">
               4. Exam-Ready Answer (English)
             </h3>
           </div>
-          <button
-            onClick={handleSave}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all border ${
-              isSaved
-                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                : 'bg-surface-container-highest hover:bg-surface-container-high text-on-surface border-outline-variant/50'
-            }`}
-          >
-            <span className="material-symbols-outlined text-sm">
-              {isSaved ? 'bookmark_added' : 'bookmark'}
-            </span>
-            <span>{isSaved ? 'Saved to Notes' : 'Save Concept'}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <NeonAudioPlayer
+              textToSpeak={explanation.exam_ready_answer}
+              language="en"
+              label="Listen Exam Answer"
+            />
+            <button
+              onClick={handleSave}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all border ${
+                isSaved
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                  : 'bg-surface-container-highest hover:bg-surface-container-high text-on-surface border-outline-variant/50'
+              }`}
+            >
+              <span className="material-symbols-outlined text-sm">
+                {isSaved ? 'bookmark_added' : 'bookmark'}
+              </span>
+              <span>{isSaved ? 'Saved to Notes' : 'Save Concept'}</span>
+            </button>
+          </div>
         </div>
         <p className="text-xs md:text-sm text-on-surface-variant font-mono bg-surface-container-lowest/80 p-3.5 rounded-xl border border-outline-variant/20 leading-relaxed">
           {explanation.exam_ready_answer}

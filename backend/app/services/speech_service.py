@@ -95,6 +95,20 @@ class GnaniSpeechService:
         if not lang:
             return "te-IN"
         key = lang.strip().lower()
+        if "telugu" in key or key.startswith("te"):
+            return "te-IN"
+        if "hindi" in key or key.startswith("hi"):
+            return "hi-IN"
+        if "tamil" in key or key.startswith("ta"):
+            return "ta-IN"
+        if "kannada" in key or key.startswith("kn") or key.startswith("ka"):
+            return "kn-IN"
+        if "malayalam" in key or key.startswith("ml"):
+            return "ml-IN"
+        if "bengali" in key or key.startswith("bn") or key.startswith("be"):
+            return "bn-IN"
+        if "english" in key or key.startswith("en"):
+            return "en-IN"
         return LANGUAGE_CODE_MAP.get(key, "te-IN")
 
     def resolve_voice(self, voice_gender: Optional[str], requested_voice: Optional[str] = None) -> str:

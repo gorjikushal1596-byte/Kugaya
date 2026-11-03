@@ -15,16 +15,29 @@ import type {
 const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const API_BASE = `${API_ORIGIN}/api/v1`;
 
+/**
+ * Universal fetch wrapper that attaches tunnel bypass headers (e.g. Localtunnel / Pinggy)
+ * ensuring remote mobile demo requests are never intercepted by provider reminder pages.
+ */
+async function appFetch(url: string, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers || {});
+  headers.set('Bypass-Tunnel-Reminder', 'true');
+  return fetch(url, {
+    ...init,
+    headers,
+  });
+}
+
 // --- User Profile & Preferences ---
 
 export async function fetchProfile(): Promise<UserProfile> {
-  const res = await fetch(`${API_BASE}/profile`);
+  const res = await appFetch(`${API_BASE}/profile`);
   if (!res.ok) throw new Error('Failed to fetch profile');
   return res.json();
 }
 
 export async function updateProfile(data: Partial<UserProfile>): Promise<UserProfile> {
-  const res = await fetch(`${API_BASE}/profile`, {
+  const res = await appFetch(`${API_BASE}/profile`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -34,7 +47,7 @@ export async function updateProfile(data: Partial<UserProfile>): Promise<UserPro
 }
 
 export async function purgeUserData(): Promise<DataPurgeResponse> {
-  const res = await fetch(`${API_BASE}/profile/data`, {
+  const res = await appFetch(`${API_BASE}/profile/data`, {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error('Failed to reset user data');
@@ -51,7 +64,7 @@ export async function sendTutorQuery(
   topic?: string,
   useCurriculumRag = true
 ): Promise<TutorInquiryResponse> {
-  const res = await fetch(`${API_BASE}/tutor/query`, {
+  const res = await appFetch(`${API_BASE}/tutor/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -73,7 +86,7 @@ export async function fetchConversations(searchQuery?: string): Promise<Conversa
   const url = searchQuery && searchQuery.trim()
     ? `${API_BASE}/conversations?q=${encodeURIComponent(searchQuery.trim())}`
     : `${API_BASE}/conversations`;
-  const res = await fetch(url);
+  const res = await appFetch(url);
   if (!res.ok) throw new Error('Failed to fetch conversations');
   return res.json();
 }
@@ -84,7 +97,7 @@ export async function createConversation(
   language = 'Telugu',
   dialect = 'Andhra & Telangana'
 ): Promise<ConversationSummary> {
-  const res = await fetch(`${API_BASE}/conversations`, {
+  const res = await appFetch(`${API_BASE}/conversations`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title, topic, language, dialect }),
@@ -94,13 +107,13 @@ export async function createConversation(
 }
 
 export async function fetchConversationDetail(conversationId: string): Promise<ConversationDetail> {
-  const res = await fetch(`${API_BASE}/conversations/${conversationId}`);
+  const res = await appFetch(`${API_BASE}/conversations/${conversationId}`);
   if (!res.ok) throw new Error('Failed to fetch conversation detail');
   return res.json();
 }
 
 export async function deleteConversation(conversationId: string): Promise<{ status: string; deleted_conversation_id: string }> {
-  const res = await fetch(`${API_BASE}/conversations/${conversationId}`, {
+  const res = await appFetch(`${API_BASE}/conversations/${conversationId}`, {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error('Failed to delete conversation');
@@ -115,13 +128,13 @@ export async function fetchSavedLessons(searchQuery?: string, category?: string)
   if (category && category.trim() && category.trim().toLowerCase() !== 'all') params.append('category', category.trim());
   const queryString = params.toString() ? `?${params.toString()}` : '';
 
-  const res = await fetch(`${API_BASE}/saved${queryString}`);
+  const res = await appFetch(`${API_BASE}/saved${queryString}`);
   if (!res.ok) throw new Error('Failed to fetch saved lessons');
   return res.json();
 }
 
 export async function fetchSavedLessonDetail(lessonId: string): Promise<SavedLessonItem> {
-  const res = await fetch(`${API_BASE}/saved/${lessonId}`);
+  const res = await appFetch(`${API_BASE}/saved/${lessonId}`);
   if (!res.ok) throw new Error('Failed to fetch saved lesson');
   return res.json();
 }
@@ -129,7 +142,7 @@ export async function fetchSavedLessonDetail(lessonId: string): Promise<SavedLes
 export async function saveLesson(
   item: SavedLessonCreate
 ): Promise<SavedLessonItem> {
-  const res = await fetch(`${API_BASE}/saved`, {
+  const res = await appFetch(`${API_BASE}/saved`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(item),
@@ -139,7 +152,7 @@ export async function saveLesson(
 }
 
 export async function deleteSavedLesson(lessonId: string): Promise<{ status: string; deleted_lesson_id: string }> {
-  const res = await fetch(`${API_BASE}/saved/${lessonId}`, {
+  const res = await appFetch(`${API_BASE}/saved/${lessonId}`, {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error('Failed to delete saved lesson');
@@ -154,7 +167,7 @@ export async function transcribeAudio(audioBlob: Blob, language = 'te'): Promise
   formData.append('audio', audioBlob, `student_query.${ext}`);
   formData.append('language', language);
 
-  const res = await fetch(`${API_BASE}/voice/stt`, {
+  const res = await appFetch(`${API_BASE}/voice/stt`, {
     method: 'POST',
     body: formData,
   });
@@ -163,7 +176,7 @@ export async function transcribeAudio(audioBlob: Blob, language = 'te'): Promise
 }
 
 export async function synthesizeTTS(text: string, language = 'te', speed = 1.0): Promise<TTSResponse> {
-  const res = await fetch(`${API_BASE}/voice/tts`, {
+  const res = await appFetch(`${API_BASE}/voice/tts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, language, speed }),
@@ -175,7 +188,7 @@ export async function synthesizeTTS(text: string, language = 'te', speed = 1.0):
 // --- Curriculum RAG ---
 
 export async function fetchCurriculumDocuments(): Promise<CurriculumDocumentSummary[]> {
-  const res = await fetch(`${API_BASE}/curriculum/documents`);
+  const res = await appFetch(`${API_BASE}/curriculum/documents`);
   if (!res.ok) throw new Error('Failed to fetch curriculum documents');
   return res.json();
 }
@@ -190,7 +203,7 @@ export async function uploadCurriculumDocument(
   if (title) formData.append('title', title);
   formData.append('subject', subject);
 
-  const res = await fetch(`${API_BASE}/curriculum/upload`, {
+  const res = await appFetch(`${API_BASE}/curriculum/upload`, {
     method: 'POST',
     body: formData,
   });
@@ -202,7 +215,7 @@ export async function uploadCurriculumDocument(
 }
 
 export async function deleteCurriculumDocument(documentId: string): Promise<{ status: string; deleted_document_id: string }> {
-  const res = await fetch(`${API_BASE}/curriculum/documents/${documentId}`, {
+  const res = await appFetch(`${API_BASE}/curriculum/documents/${documentId}`, {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error('Failed to delete curriculum document');

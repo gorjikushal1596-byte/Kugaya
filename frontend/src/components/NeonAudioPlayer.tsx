@@ -8,6 +8,30 @@ interface NeonAudioPlayerProps {
   onPlaybackStateChange?: (isPlaying: boolean) => void;
 }
 
+function cleanTextForSpeech(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/#{1,6}\s+/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function resolveLangCode(lang: string): string {
+  const l = (lang || '').toLowerCase();
+  if (l.includes('telugu') || l.startsWith('te')) return 'te';
+  if (l.includes('kannada') || l.startsWith('kn') || l.startsWith('ka')) return 'kn';
+  if (l.includes('tamil') || l.startsWith('ta')) return 'ta';
+  if (l.includes('hindi') || l.startsWith('hi')) return 'hi';
+  if (l.includes('malayalam') || l.startsWith('ml')) return 'ml';
+  if (l.includes('bengali') || l.startsWith('bn')) return 'bn';
+  if (l.includes('english') || l.startsWith('en')) return 'en';
+  return 'te';
+}
+
 export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
   textToSpeak,
   language,
@@ -21,6 +45,7 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [error, setError] = useState<string | null>(null);
+  const [isUsingNativeSpeech, setIsUsingNativeSpeech] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -33,13 +58,26 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
       if (audioUrl) {
         URL.revokeObjectURL(audioUrl);
       }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
     };
   }, [audioUrl]);
 
   const loadAndPlayAudio = async () => {
     setError(null);
 
-    // If audio already generated, simply resume/play
+    // If native speech synthesis was used and is playing, toggle pause
+    if (isUsingNativeSpeech && 'speechSynthesis' in window) {
+      if (isPlaying) {
+        window.speechSynthesis.cancel();
+        setIsPlaying(false);
+        onPlaybackStateChange?.(false);
+      }
+      return;
+    }
+
+    // If audio element is already primed with audioUrl, toggle play/pause immediately
     if (audioRef.current && audioUrl) {
       if (isPlaying) {
         audioRef.current.pause();
@@ -47,38 +85,62 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
         onPlaybackStateChange?.(false);
       } else {
         audioRef.current.playbackRate = playbackSpeed;
-        audioRef.current.play().catch(console.error);
-        setIsPlaying(true);
-        onPlaybackStateChange?.(true);
+        audioRef.current.play().then(() => {
+          setIsPlaying(true);
+          onPlaybackStateChange?.(true);
+        }).catch((err) => {
+          console.warn('Playback resume notice:', err);
+          setIsPlaying(false);
+          onPlaybackStateChange?.(false);
+        });
       }
+      return;
+    }
+
+    // Synchronously create or reuse audio instance on user gesture to satisfy mobile autoplay policies
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+    }
+    const audio = audioRef.current;
+
+    const cleanedText = cleanTextForSpeech(textToSpeak);
+    if (!cleanedText) {
+      setError('No text to speak.');
       return;
     }
 
     try {
       setIsLoading(true);
-      const res = await synthesizeTTS(textToSpeak, language.toLowerCase().slice(0, 2), playbackSpeed);
+      const langCode = resolveLangCode(language);
+      const res = await synthesizeTTS(cleanedText, langCode, playbackSpeed);
 
       if (!res.audio_base64) {
-        throw new Error('No audio content returned from Timbre.');
+        throw new Error('No audio returned from Timbre.');
       }
 
-      // Convert base64 to binary blob URL
-      const byteCharacters = atob(res.audio_base64);
-      const byteNumbers = new Array(byteCharacters.length);
+      // Convert base64 into WAV Blob
+      const cleanB64 = res.audio_base64.replace(/\s/g, '');
+      const byteCharacters = atob(cleanB64);
+      const byteNumbers = new Uint8Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {
         byteNumbers[i] = byteCharacters.charCodeAt(i);
       }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'audio/wav' });
+      const blob = new Blob([byteNumbers], { type: 'audio/wav' });
       const url = URL.createObjectURL(blob);
       setAudioUrl(url);
 
-      const audio = new Audio(url);
+      audio.src = url;
       audio.playbackRate = playbackSpeed;
-      audioRef.current = audio;
+
+      // Set initial duration from backend estimate immediately
+      if (res.duration_seconds && res.duration_seconds > 0) {
+        setDuration(res.duration_seconds);
+      }
 
       audio.onloadedmetadata = () => {
-        setDuration(audio.duration || res.duration_seconds || 0);
+        if (audio.duration && isFinite(audio.duration) && audio.duration > 0) {
+          setDuration(audio.duration);
+        }
       };
 
       audio.ontimeupdate = () => {
@@ -92,7 +154,7 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
       };
 
       audio.onerror = () => {
-        console.warn('Audio element decode notice.');
+        console.warn('Audio element decode event.');
         setIsPlaying(false);
         onPlaybackStateChange?.(false);
       };
@@ -102,12 +164,42 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
         setIsPlaying(true);
         onPlaybackStateChange?.(true);
       } catch (playErr) {
-        console.warn('Autoplay restricted by mobile browser policy; audio loaded for user tap:', playErr);
+        // Mobile browsers may restrict unprimed async play; audio is ready so next user tap plays instantly
+        console.warn('Autoplay restricted by mobile policy; audio is loaded and ready for tap:', playErr);
         setIsPlaying(false);
         onPlaybackStateChange?.(false);
       }
     } catch (err: unknown) {
-      console.error('Timbre speech synthesis failed:', err);
+      console.warn('Timbre network synthesis fallback triggering native speech:', err);
+      // Fallback gracefully to Web Speech API so student experience is uninterrupted
+      if ('speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(cleanedText);
+          const langCode = resolveLangCode(language);
+          utterance.lang = langCode === 'te' ? 'te-IN' : 'en-IN';
+          utterance.rate = playbackSpeed;
+          utterance.onstart = () => {
+            setIsUsingNativeSpeech(true);
+            setIsPlaying(true);
+            onPlaybackStateChange?.(true);
+          };
+          utterance.onend = () => {
+            setIsPlaying(false);
+            setIsUsingNativeSpeech(false);
+            onPlaybackStateChange?.(false);
+          };
+          utterance.onerror = () => {
+            setIsPlaying(false);
+            setIsUsingNativeSpeech(false);
+            onPlaybackStateChange?.(false);
+          };
+          window.speechSynthesis.speak(utterance);
+          return;
+        } catch {
+          // Ignore
+        }
+      }
       setError('Speech synthesis failed. Please retry.');
       setIsPlaying(false);
       onPlaybackStateChange?.(false);
@@ -117,12 +209,13 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
   };
 
   const handleReplay = () => {
-    if (audioRef.current) {
+    if (audioRef.current && audioUrl) {
       audioRef.current.currentTime = 0;
       audioRef.current.playbackRate = playbackSpeed;
-      audioRef.current.play().catch(console.error);
-      setIsPlaying(true);
-      onPlaybackStateChange?.(true);
+      audioRef.current.play().then(() => {
+        setIsPlaying(true);
+        onPlaybackStateChange?.(true);
+      }).catch(console.error);
     } else {
       loadAndPlayAudio();
     }
@@ -147,6 +240,7 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
   };
 
   const formatSecs = (s: number) => {
+    if (!s || !isFinite(s) || isNaN(s)) return '0:00';
     const mins = Math.floor(s / 60);
     const secs = Math.floor(s % 60);
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
@@ -169,10 +263,18 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
               {isPlaying ? 'pause' : 'volume_up'}
             </span>
           )}
-          <span>{isLoading ? 'Synthesizing...' : isPlaying ? 'Pause' : label}</span>
+          <span>
+            {isLoading
+              ? 'Synthesizing...'
+              : isPlaying
+              ? 'Pause'
+              : audioUrl && !isPlaying
+              ? 'Tap to Play'
+              : label}
+          </span>
         </button>
 
-        {/* Replay 10s Button */}
+        {/* Replay Button */}
         {audioUrl && (
           <button
             onClick={handleReplay}
@@ -235,4 +337,3 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
     </div>
   );
 };
-
