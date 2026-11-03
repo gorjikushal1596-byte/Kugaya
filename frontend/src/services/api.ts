@@ -150,7 +150,8 @@ export async function deleteSavedLesson(lessonId: string): Promise<{ status: str
 
 export async function transcribeAudio(audioBlob: Blob, language = 'te'): Promise<STTResponse> {
   const formData = new FormData();
-  formData.append('audio', audioBlob, 'audio.wav');
+  const ext = audioBlob.type.includes('webm') ? 'webm' : audioBlob.type.includes('ogg') ? 'ogg' : 'wav';
+  formData.append('audio', audioBlob, `student_query.${ext}`);
   formData.append('language', language);
 
   const res = await fetch(`${API_BASE}/voice/stt`, {

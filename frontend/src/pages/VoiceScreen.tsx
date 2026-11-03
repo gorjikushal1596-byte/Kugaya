@@ -47,7 +47,7 @@ export const VoiceScreen: React.FC = () => {
         await processRecognizedQuestion(sttResult.transcription);
       } catch (err: unknown) {
         console.error('Gnani Prisma transcription failed:', err);
-        setServiceError('Gnani Prisma speech recognition error. Check microphone and network.');
+        setServiceError('Could not capture voice clearly. Please speak closer to your mic and tap again.');
       } finally {
         setIsTranscribing(false);
       }

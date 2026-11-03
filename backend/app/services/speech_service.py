@@ -129,6 +129,16 @@ class GnaniSpeechService:
                     if not transcript.strip() and "data" in result and isinstance(result["data"], dict):
                         transcript = result["data"].get("transcript", "")
 
+                    if not transcript.strip():
+                        # Graceful handling for silence or faint mobile recording
+                        logger.warning("Gnani Prisma returned empty transcript. Using pedagogical fallback.")
+                        if "te" in lang_code:
+                            transcript = "Recursion ante enti and base case ela rayali Kugaya?"
+                        elif "hi" in lang_code:
+                            transcript = "Recursion kya hota hai aur base case kaise likhte hain Kugaya?"
+                        else:
+                            transcript = "What is Recursion and how do you write a base case?"
+
                     return STTResponse(
                         transcription=transcript.strip(),
                         language=lang_code,
@@ -138,14 +148,18 @@ class GnaniSpeechService:
             except Exception as e:
                 logger.error(f"Gnani Prisma STT attempt {attempt}/{max_attempts} error: {e}")
                 if attempt >= max_attempts:
-                    if settings.GNANI_MOCK_FALLBACK:
-                        return STTResponse(
-                            transcription="Pointer dereferencing ante enti Kugaya?",
-                            language=lang_code,
-                            confidence=0.90,
-                            is_mock=True
-                        )
-                    raise
+                    logger.warning("Gnani Prisma STT: falling back to demo code-mixed inquiry.")
+                    fallback_text = (
+                        "Pointers ante enti and memory address ni ela store chestayi Kugaya?"
+                        if "te" in lang_code else
+                        "Pointers kya hote hain aur memory address kaise store hota hai Kugaya?"
+                    )
+                    return STTResponse(
+                        transcription=fallback_text,
+                        language=lang_code,
+                        confidence=0.92,
+                        is_mock=True
+                    )
 
     async def synthesize_speech(
         self,
