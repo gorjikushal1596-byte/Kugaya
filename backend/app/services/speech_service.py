@@ -50,9 +50,8 @@ class GnaniSpeechService:
         self.timbre_url = settings.GNANI_TIMBRE_TTS_URL
         self.timeout = settings.GNANI_TIMEOUT_SECONDS
         self.default_voice = settings.GNANI_DEFAULT_VOICE
-        self.mock_fallback = settings.GNANI_MOCK_FALLBACK or not bool(
-            self.api_key and self.api_key.strip() not in ("", "your_gnani_api_key_here")
-        )
+        self.has_live_key = bool(self.api_key and self.api_key.strip() not in ("", "your_gnani_api_key_here"))
+        self.mock_fallback = not self.has_live_key
 
     def resolve_language_code(self, lang: Optional[str]) -> str:
         if not lang:
@@ -117,49 +116,38 @@ class GnaniSpeechService:
         attempt = 0
         max_attempts = 2
 
+        http_timeout = httpx.Timeout(self.timeout, connect=15.0)
+
         while attempt < max_attempts:
             attempt += 1
             try:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                async with httpx.AsyncClient(timeout=http_timeout) as client:
                     resp = await client.post(self.prisma_url, headers=headers, files=files, data=data)
                     resp.raise_for_status()
                     result = resp.json()
+                    logger.info(f"Gnani Prisma raw STT response: {result}")
 
-                    transcript = result.get("transcript") or result.get("transcription") or ""
-                    if not transcript.strip() and "data" in result and isinstance(result["data"], dict):
-                        transcript = result["data"].get("transcript", "")
-
-                    if not transcript.strip():
-                        # Graceful handling for silence or faint mobile recording
-                        logger.warning("Gnani Prisma returned empty transcript. Using pedagogical fallback.")
-                        if "te" in lang_code:
-                            transcript = "Recursion ante enti and base case ela rayali Kugaya?"
-                        elif "hi" in lang_code:
-                            transcript = "Recursion kya hota hai aur base case kaise likhte hain Kugaya?"
-                        else:
-                            transcript = "What is Recursion and how do you write a base case?"
+                    transcript = ""
+                    if isinstance(result, dict):
+                        transcript = (
+                            result.get("transcript")
+                            or result.get("transcription")
+                            or (result.get("data", {}).get("transcript") if isinstance(result.get("data"), dict) else "")
+                            or (result.get("result", {}).get("transcript") if isinstance(result.get("result"), dict) else "")
+                            or result.get("text")
+                            or ""
+                        )
 
                     return STTResponse(
                         transcription=transcript.strip(),
                         language=lang_code,
-                        confidence=float(result.get("confidence", 0.95)),
+                        confidence=float(result.get("confidence", 0.95)) if isinstance(result, dict) else 0.95,
                         is_mock=False
                     )
             except Exception as e:
                 logger.error(f"Gnani Prisma STT attempt {attempt}/{max_attempts} error: {e}")
                 if attempt >= max_attempts:
-                    logger.warning("Gnani Prisma STT: falling back to demo code-mixed inquiry.")
-                    fallback_text = (
-                        "Pointers ante enti and memory address ni ela store chestayi Kugaya?"
-                        if "te" in lang_code else
-                        "Pointers kya hote hain aur memory address kaise store hota hai Kugaya?"
-                    )
-                    return STTResponse(
-                        transcription=fallback_text,
-                        language=lang_code,
-                        confidence=0.92,
-                        is_mock=True
-                    )
+                    raise
 
     async def synthesize_speech(
         self,
@@ -211,11 +199,12 @@ class GnaniSpeechService:
 
         attempt = 0
         max_attempts = 2
+        http_timeout = httpx.Timeout(self.timeout, connect=15.0)
 
         while attempt < max_attempts:
             attempt += 1
             try:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                async with httpx.AsyncClient(timeout=http_timeout) as client:
                     resp = await client.post(self.timbre_url, headers=headers, json=payload)
                     resp.raise_for_status()
 
