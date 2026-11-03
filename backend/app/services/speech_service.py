@@ -1,6 +1,9 @@
 import logging
 import time
 import base64
+import struct
+import subprocess
+import shutil
 from typing import Optional, Dict
 import httpx
 
@@ -8,6 +11,41 @@ from app.config import settings
 from app.schemas import STTResponse, TTSResponse
 
 logger = logging.getLogger(__name__)
+
+def convert_audio_to_wav(audio_bytes: bytes) -> bytes:
+    """
+    Converts mobile browser audio formats (e.g. webm/opus) into standard 16kHz mono WAV
+    required by Gnani AI Prisma v2.5.
+    """
+    if audio_bytes.startswith(b"RIFF"):
+        return audio_bytes
+    try:
+        ffmpeg_bin = shutil.which("ffmpeg") or "ffmpeg"
+        cmd = [ffmpeg_bin, "-y", "-i", "pipe:0", "-f", "wav", "-ar", "16000", "-ac", "1", "pipe:1"]
+        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, _ = proc.communicate(input=audio_bytes, timeout=10)
+        if proc.returncode == 0 and stdout.startswith(b"RIFF"):
+            logger.info(f"Successfully transcoded {len(audio_bytes)}B to {len(stdout)}B 16kHz WAV for Gnani Prisma.")
+            return stdout
+    except Exception as e:
+        logger.warning(f"Audio transcoding to WAV note: {e}")
+    return audio_bytes
+
+def fix_wav_header(audio_bytes: bytes) -> bytes:
+    """
+    Repairs streaming chunk lengths (0xFFFFFFFF) returned by Gnani Timbre
+    so mobile browsers (Chrome, Safari) parse and play the WAV without error.
+    """
+    if len(audio_bytes) < 44 or not audio_bytes.startswith(b"RIFF"):
+        return audio_bytes
+    data = bytearray(audio_bytes)
+    riff_size = len(data) - 8
+    data[4:8] = struct.pack("<I", riff_size)
+    data_pos = data.find(b"data")
+    if data_pos != -1 and data_pos + 8 <= len(data):
+        chunk_size = len(data) - (data_pos + 8)
+        data[data_pos+4:data_pos+8] = struct.pack("<I", chunk_size)
+    return bytes(data)
 
 # BCP-47 and Gnani regional language mappings
 LANGUAGE_CODE_MAP: Dict[str, str] = {
@@ -97,16 +135,11 @@ class GnaniSpeechService:
             "X-API-Key-ID": self.api_key,
         }
 
-        ext = "wav"
-        if "webm" in content_type:
-            ext = "webm"
-        elif "ogg" in content_type:
-            ext = "ogg"
-        elif "mp3" in content_type or "mpeg" in content_type:
-            ext = "mp3"
+        # Transcode mobile audio (WebM/Opus) into standard 16kHz mono WAV for Gnani Prisma
+        wav_bytes = convert_audio_to_wav(audio_bytes)
 
         files = {
-            "audio_file": (f"student_query.{ext}", audio_bytes, content_type)
+            "audio_file": ("student_query.wav", wav_bytes, "audio/wav")
         }
         data = {
             "language_code": lang_code,
@@ -208,8 +241,8 @@ class GnaniSpeechService:
                     resp = await client.post(self.timbre_url, headers=headers, json=payload)
                     resp.raise_for_status()
 
-                    # Gnani Timbre returns raw WAV binary with 'RIFF' header
-                    audio_bytes = resp.content
+                    # Gnani Timbre returns raw WAV binary with streaming header; repair RIFF & data chunk sizes
+                    audio_bytes = fix_wav_header(resp.content)
                     if not audio_bytes.startswith(b"RIFF"):
                         # If raw PCM, encapsulate or decode
                         logger.warning("Gnani Timbre response did not start with standard RIFF header.")

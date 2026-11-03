@@ -92,14 +92,20 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
       };
 
       audio.onerror = () => {
-        setError('Audio playback error.');
+        console.warn('Audio element decode notice.');
         setIsPlaying(false);
         onPlaybackStateChange?.(false);
       };
 
-      await audio.play();
-      setIsPlaying(true);
-      onPlaybackStateChange?.(true);
+      try {
+        await audio.play();
+        setIsPlaying(true);
+        onPlaybackStateChange?.(true);
+      } catch (playErr) {
+        console.warn('Autoplay restricted by mobile browser policy; audio loaded for user tap:', playErr);
+        setIsPlaying(false);
+        onPlaybackStateChange?.(false);
+      }
     } catch (err: unknown) {
       console.error('Timbre speech synthesis failed:', err);
       setError('Speech synthesis failed. Please retry.');
