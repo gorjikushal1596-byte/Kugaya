@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import type { TutorInquiryResponse } from '../types';
 import { NeuralOrb } from '../components/NeuralOrb';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { transcribeAudio, sendTutorQuery, synthesizeTTS } from '../services/api';
 import { ExplanationStream } from '../components/ExplanationStream';
+import { stopAllActiveAudio } from '../utils/audioCoordinator';
 
 export const VoiceScreen: React.FC = () => {
   const { user } = useUser();
+  const navigate = useNavigate();
   const audioRecorder = useAudioRecorder();
 
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -18,6 +21,28 @@ export const VoiceScreen: React.FC = () => {
   const [isEditingText, setIsEditingText] = useState(false);
   const [activeSession, setActiveSession] = useState<TutorInquiryResponse | null>(null);
   const [serviceError, setServiceError] = useState<string | null>(null);
+
+  const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handleStopVoiceOver = () => {
+    if (voiceAudioRef.current) {
+      voiceAudioRef.current.pause();
+      voiceAudioRef.current.currentTime = 0;
+      voiceAudioRef.current = null;
+    }
+    stopAllActiveAudio();
+    setIsSpeaking(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (voiceAudioRef.current) {
+        voiceAudioRef.current.pause();
+        voiceAudioRef.current = null;
+      }
+      stopAllActiveAudio();
+    };
+  }, []);
 
   const handleToggleVoice = async () => {
     setServiceError(null);
@@ -81,15 +106,30 @@ export const VoiceScreen: React.FC = () => {
       );
 
       if (ttsRes.audio_base64 && ttsRes.audio_base64.length > 20) {
+        stopAllActiveAudio();
         const audio = new Audio(`data:audio/wav;base64,${ttsRes.audio_base64}`);
-        audio.play().catch(() => {});
+        voiceAudioRef.current = audio;
+        audio.onended = () => {
+          setIsSpeaking(false);
+          voiceAudioRef.current = null;
+        };
+        audio.onerror = () => {
+          setIsSpeaking(false);
+          voiceAudioRef.current = null;
+        };
+        audio.play().catch(() => {
+          setIsSpeaking(false);
+          voiceAudioRef.current = null;
+        });
+      } else {
+        setIsSpeaking(false);
       }
     } catch (err) {
       console.error(err);
       setServiceError('Failed to generate Kugaya reasoning response.');
+      setIsSpeaking(false);
     } finally {
       setIsReasoning(false);
-      setTimeout(() => setIsSpeaking(false), 3000);
     }
   };
 
@@ -97,6 +137,20 @@ export const VoiceScreen: React.FC = () => {
     e.preventDefault();
     setIsEditingText(false);
     processRecognizedQuestion(recognizedText);
+  };
+
+  const handleSelectFeature = (featureId: string) => {
+    if (featureId === 'concepts') {
+      navigate('/tutor', { state: { initialQuery: 'Explain key core concepts from my syllabus' } });
+    } else if (featureId === 'doubts') {
+      if (!audioRecorder.isRecording) {
+        handleToggleVoice();
+      }
+    } else if (featureId === 'curriculum') {
+      navigate('/tutor', { state: { initialQuery: 'Explain concepts grounded in university syllabus' } });
+    } else if (featureId === 'speak') {
+      handleToggleVoice();
+    }
   };
 
   return (
@@ -116,14 +170,30 @@ export const VoiceScreen: React.FC = () => {
       </div>
 
       {/* Futuristic Neural Sound Orb Visualizer */}
-      <div className="p-6 rounded-3xl bg-surface-container-low border border-primary-container/30 shadow-neon">
+      <div className="p-4 md:p-6 rounded-3xl bg-gradient-to-b from-[#090d1c] via-[#0d1326] to-[#070a16] border border-primary-container/25 shadow-[0_0_50px_rgba(0,229,255,0.1)] relative overflow-hidden">
         <NeuralOrb
           isListening={audioRecorder.isRecording}
           isSpeaking={isSpeaking}
           volumeLevel={audioRecorder.volumeLevel}
           durationSeconds={audioRecorder.recordingDuration}
           onToggle={handleToggleVoice}
+          onSelectFeature={handleSelectFeature}
         />
+
+        {/* Dedicated Stop Voice Over Button */}
+        {isSpeaking && (
+          <div className="mt-4 flex justify-center">
+            <button
+              type="button"
+              onClick={handleStopVoiceOver}
+              className="px-4 py-2 rounded-full bg-error-container/30 hover:bg-error-container/50 text-error border border-error/50 text-xs font-bold flex items-center gap-2 active:scale-95 transition-all shadow-md animate-pulse"
+              title="Stop voice playback"
+            >
+              <span className="material-symbols-outlined text-base">stop_circle</span>
+              <span>Stop Voice Over</span>
+            </button>
+          </div>
+        )}
 
         {/* Live Audio Status / Loading States */}
         {audioRecorder.error && (

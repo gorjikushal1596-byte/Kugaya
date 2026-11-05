@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { synthesizeTTS } from '../services/api';
+import { registerActivePlayer, unregisterActivePlayer } from '../utils/audioCoordinator';
 
 interface NeonAudioPlayerProps {
   textToSpeak: string;
@@ -16,6 +17,7 @@ function cleanTextForSpeech(raw: string): string {
     .replace(/#{1,6}\s+/g, '')
     .replace(/`([^`]+)`/g, '$1')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/[_~>|]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -48,94 +50,24 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
   const [isUsingNativeSpeech, setIsUsingNativeSpeech] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const cachedAudioBlobUrlRef = useRef<string | null>(null);
+  const playerId = useRef(`player_${Math.random().toString(36).slice(2, 9)}`).current;
 
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-      }
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, [audioUrl]);
-
-  const loadAndPlayAudio = async () => {
-    setError(null);
-
-    // If native speech synthesis was used and is playing, toggle pause
-    if (isUsingNativeSpeech && 'speechSynthesis' in window) {
-      if (isPlaying) {
-        window.speechSynthesis.cancel();
-        setIsPlaying(false);
-        onPlaybackStateChange?.(false);
-      }
-      return;
-    }
-
-    // If audio element is already primed with audioUrl, toggle play/pause immediately
-    if (audioRef.current && audioUrl) {
-      if (isPlaying) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-        onPlaybackStateChange?.(false);
-      } else {
-        audioRef.current.playbackRate = playbackSpeed;
-        audioRef.current.play().then(() => {
-          setIsPlaying(true);
-          onPlaybackStateChange?.(true);
-        }).catch((err) => {
-          console.warn('Playback resume notice:', err);
-          setIsPlaying(false);
-          onPlaybackStateChange?.(false);
-        });
-      }
-      return;
-    }
-
-    // Synchronously create or reuse audio instance on user gesture to satisfy mobile autoplay policies
+  // Ensure HTML5 Audio instance is initialized and listeners bound
+  const getOrCreateAudioElement = (): HTMLAudioElement => {
     if (!audioRef.current) {
-      audioRef.current = new Audio();
-    }
-    const audio = audioRef.current;
+      const audio = new Audio();
+      audio.preload = 'auto';
 
-    const cleanedText = cleanTextForSpeech(textToSpeak);
-    if (!cleanedText) {
-      setError('No text to speak.');
-      return;
-    }
+      audio.onplay = () => {
+        setIsPlaying(true);
+        onPlaybackStateChange?.(true);
+      };
 
-    try {
-      setIsLoading(true);
-      const langCode = resolveLangCode(language);
-      const res = await synthesizeTTS(cleanedText, langCode, playbackSpeed);
-
-      if (!res.audio_base64) {
-        throw new Error('No audio returned from Timbre.');
-      }
-
-      // Convert base64 into WAV Blob
-      const cleanB64 = res.audio_base64.replace(/\s/g, '');
-      const byteCharacters = atob(cleanB64);
-      const byteNumbers = new Uint8Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const blob = new Blob([byteNumbers], { type: 'audio/wav' });
-      const url = URL.createObjectURL(blob);
-      setAudioUrl(url);
-
-      audio.src = url;
-      audio.playbackRate = playbackSpeed;
-
-      // Set initial duration from backend estimate immediately
-      if (res.duration_seconds && res.duration_seconds > 0) {
-        setDuration(res.duration_seconds);
-      }
+      audio.onpause = () => {
+        setIsPlaying(false);
+        onPlaybackStateChange?.(false);
+      };
 
       audio.onloadedmetadata = () => {
         if (audio.duration && isFinite(audio.duration) && audio.duration > 0) {
@@ -150,27 +82,191 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
       audio.onended = () => {
         setIsPlaying(false);
         setCurrentTime(0);
+        unregisterActivePlayer(playerId);
         onPlaybackStateChange?.(false);
       };
 
       audio.onerror = () => {
-        console.warn('Audio element decode event.');
+        console.warn('Audio element error or source reset.');
         setIsPlaying(false);
         onPlaybackStateChange?.(false);
       };
+
+      audioRef.current = audio;
+    }
+    return audioRef.current;
+  };
+
+  const handlePause = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    if (isUsingNativeSpeech && 'speechSynthesis' in window) {
+      window.speechSynthesis.pause();
+    }
+    setIsPlaying(false);
+    onPlaybackStateChange?.(false);
+  };
+
+  const handleResume = () => {
+    registerActivePlayer(playerId, handlePause, handleStop);
+    if (isUsingNativeSpeech && 'speechSynthesis' in window) {
+      window.speechSynthesis.resume();
+      setIsPlaying(true);
+      onPlaybackStateChange?.(true);
+      return;
+    }
+
+    const audio = getOrCreateAudioElement();
+    const sourceUrl = audioUrl || cachedAudioBlobUrlRef.current;
+
+    if (sourceUrl) {
+      if (!audio.src || audio.src !== sourceUrl) {
+        audio.src = sourceUrl;
+      }
+      audio.playbackRate = playbackSpeed;
+      audio.play().then(() => {
+        setIsPlaying(true);
+        onPlaybackStateChange?.(true);
+      }).catch((err) => {
+        console.warn('Playback resume notice:', err);
+        setIsPlaying(false);
+        onPlaybackStateChange?.(false);
+      });
+    }
+  };
+
+  const handleStop = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    unregisterActivePlayer(playerId);
+    setIsLoading(false);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setIsUsingNativeSpeech(false);
+    // Setting audioUrl to null cleanly restores the card's original button (e.g. "Listen Analogy")
+    // while cachedAudioBlobUrlRef keeps the synthesized audio for instant restart on next tap
+    setAudioUrl(null);
+    onPlaybackStateChange?.(false);
+  };
+
+  // Reset audio cache when text or language changes
+  useEffect(() => {
+    handleStop();
+    if (cachedAudioBlobUrlRef.current) {
+      URL.revokeObjectURL(cachedAudioBlobUrlRef.current);
+      cachedAudioBlobUrlRef.current = null;
+    }
+  }, [textToSpeak, language]);
+
+  // Clean up on component unmount
+  useEffect(() => {
+    return () => {
+      unregisterActivePlayer(playerId);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current = null;
+      }
+      if (cachedAudioBlobUrlRef.current) {
+        URL.revokeObjectURL(cachedAudioBlobUrlRef.current);
+        cachedAudioBlobUrlRef.current = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, [playerId]);
+
+  const loadAndPlayAudio = async () => {
+    setError(null);
+
+    // If native speech synthesis was in progress, toggle play/resume
+    if (isUsingNativeSpeech && 'speechSynthesis' in window) {
+      if (isPlaying) {
+        handlePause();
+      } else {
+        handleResume();
+      }
+      return;
+    }
+
+    const audio = getOrCreateAudioElement();
+
+    // Fast-path: if audio was already synthesized and cached for this card, play immediately
+    if (cachedAudioBlobUrlRef.current) {
+      registerActivePlayer(playerId, handlePause, handleStop);
+      setAudioUrl(cachedAudioBlobUrlRef.current);
+      if (audio.src !== cachedAudioBlobUrlRef.current) {
+        audio.src = cachedAudioBlobUrlRef.current;
+      }
+      audio.playbackRate = playbackSpeed;
+      audio.currentTime = 0;
+      try {
+        await audio.play();
+        setIsPlaying(true);
+        onPlaybackStateChange?.(true);
+      } catch (e) {
+        console.warn('Cached audio playback notice:', e);
+      }
+      return;
+    }
+
+    // Register active player so other playing cards pause immediately
+    registerActivePlayer(playerId, handlePause, handleStop);
+
+    const cleanedText = cleanTextForSpeech(textToSpeak);
+    if (!cleanedText) {
+      setError('No text to speak.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const langCode = resolveLangCode(language);
+      const res = await synthesizeTTS(cleanedText, langCode, playbackSpeed);
+
+      if (!res.audio_base64) {
+        throw new Error('No audio returned from Timbre model.');
+      }
+
+      // Convert base64 into WAV Blob
+      const cleanB64 = res.audio_base64.replace(/\s/g, '');
+      const byteCharacters = atob(cleanB64);
+      const byteNumbers = new Uint8Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const blob = new Blob([byteNumbers], { type: 'audio/wav' });
+      const url = URL.createObjectURL(blob);
+
+      cachedAudioBlobUrlRef.current = url;
+      setAudioUrl(url);
+
+      audio.src = url;
+      audio.playbackRate = playbackSpeed;
+
+      // Set initial duration from backend estimate immediately
+      if (res.duration_seconds && res.duration_seconds > 0) {
+        setDuration(res.duration_seconds);
+      }
 
       try {
         await audio.play();
         setIsPlaying(true);
         onPlaybackStateChange?.(true);
       } catch (playErr) {
-        // Mobile browsers may restrict unprimed async play; audio is ready so next user tap plays instantly
-        console.warn('Autoplay restricted by mobile policy; audio is loaded and ready for tap:', playErr);
+        console.warn('Autoplay restricted by browser policy; audio is loaded and ready:', playErr);
         setIsPlaying(false);
         onPlaybackStateChange?.(false);
       }
     } catch (err: unknown) {
-      console.warn('Timbre network synthesis fallback triggering native speech:', err);
+      console.warn('Gnani Timbre network synthesis fallback triggering native speech:', err);
       // Fallback gracefully to Web Speech API so student experience is uninterrupted
       if ('speechSynthesis' in window) {
         try {
@@ -187,6 +283,8 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
           utterance.onend = () => {
             setIsPlaying(false);
             setIsUsingNativeSpeech(false);
+            setCurrentTime(0);
+            unregisterActivePlayer(playerId);
             onPlaybackStateChange?.(false);
           };
           utterance.onerror = () => {
@@ -209,10 +307,17 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
   };
 
   const handleReplay = () => {
-    if (audioRef.current && audioUrl) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.playbackRate = playbackSpeed;
-      audioRef.current.play().then(() => {
+    registerActivePlayer(playerId, handlePause, handleStop);
+    const audio = getOrCreateAudioElement();
+    const sourceUrl = audioUrl || cachedAudioBlobUrlRef.current;
+    if (sourceUrl) {
+      if (audio.src !== sourceUrl) {
+        audio.src = sourceUrl;
+      }
+      setAudioUrl(sourceUrl);
+      audio.currentTime = 0;
+      audio.playbackRate = playbackSpeed;
+      audio.play().then(() => {
         setIsPlaying(true);
         onPlaybackStateChange?.(true);
       }).catch(console.error);
@@ -248,35 +353,68 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
 
   return (
     <div className="flex flex-col space-y-1.5 w-full">
-      <div className="flex items-center gap-2">
-        {/* Main Play / Pause Button */}
-        <button
-          onClick={loadAndPlayAudio}
-          disabled={isLoading}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-container/15 hover:bg-primary-container/30 text-primary text-xs font-semibold transition-all active:scale-95 border border-primary-container/40"
-          title={isPlaying ? 'Pause' : 'Play Audio with Gnani Timbre'}
-        >
-          {isLoading ? (
-            <span className="material-symbols-outlined text-[16px] animate-spin">sync</span>
-          ) : (
-            <span className="material-symbols-outlined text-[16px] fill-1">
-              {isPlaying ? 'pause' : 'volume_up'}
-            </span>
-          )}
-          <span>
-            {isLoading
-              ? 'Synthesizing...'
-              : isPlaying
-              ? 'Pause'
-              : audioUrl && !isPlaying
-              ? 'Tap to Play'
-              : label}
-          </span>
-        </button>
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* State 1: When Playing -> PAUSE Button */}
+        {isPlaying && (
+          <button
+            type="button"
+            onClick={handlePause}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-semibold transition-all active:scale-95 border border-amber-500/40 shadow-sm"
+            title="Pause Voice Over"
+          >
+            <span className="material-symbols-outlined text-[16px]">pause</span>
+            <span>Pause</span>
+          </button>
+        )}
 
-        {/* Replay Button */}
+        {/* State 2: When Paused (audio loaded, stopped mid-way) -> RESUME Button */}
+        {!isPlaying && audioUrl && (
+          <button
+            type="button"
+            onClick={handleResume}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-semibold transition-all active:scale-95 border border-emerald-500/40 shadow-sm"
+            title="Resume Voice Over"
+          >
+            <span className="material-symbols-outlined text-[16px] fill-1">play_arrow</span>
+            <span>Resume</span>
+          </button>
+        )}
+
+        {/* State 3: When Initial / Stopped -> LISTEN Card Button */}
+        {!isPlaying && !audioUrl && (
+          <button
+            type="button"
+            onClick={loadAndPlayAudio}
+            disabled={isLoading}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-container/15 hover:bg-primary-container/30 text-primary text-xs font-semibold transition-all active:scale-95 border border-primary-container/40"
+            title="Play Audio with Gnani Timbre"
+          >
+            {isLoading ? (
+              <span className="material-symbols-outlined text-[16px] animate-spin">sync</span>
+            ) : (
+              <span className="material-symbols-outlined text-[16px] fill-1">volume_up</span>
+            )}
+            <span>{isLoading ? 'Synthesizing...' : label}</span>
+          </button>
+        )}
+
+        {/* STOP Button: Always accessible when playing, paused, or synthesizing to immediately halt voice */}
+        {(isPlaying || audioUrl || isLoading) && (
+          <button
+            type="button"
+            onClick={handleStop}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-semibold border border-rose-500/40 transition-all active:scale-95 shadow-sm"
+            title="Stop voice playback"
+          >
+            <span className="material-symbols-outlined text-[15px] fill-1">stop</span>
+            <span>Stop</span>
+          </button>
+        )}
+
+        {/* Replay Button (Available once audio has been loaded) */}
         {audioUrl && (
           <button
+            type="button"
             onClick={handleReplay}
             className="p-1 rounded-full text-on-surface-variant hover:text-primary transition-colors text-xs"
             title="Replay from start"
@@ -288,6 +426,7 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
         {/* Playback Speed Controller */}
         {audioUrl && (
           <button
+            type="button"
             onClick={handleSpeedToggle}
             className="px-2 py-0.5 rounded-md bg-surface-container-high border border-outline-variant/30 text-[10px] font-mono font-bold text-primary hover:bg-surface-container-highest transition-colors"
             title="Toggle playback speed"
@@ -296,7 +435,7 @@ export const NeonAudioPlayer: React.FC<NeonAudioPlayerProps> = ({
           </button>
         )}
 
-        {/* Subtle Waveform Animation when active */}
+        {/* Subtle Waveform Animation when playing */}
         {isPlaying && (
           <div className="flex items-center gap-0.5 h-3 px-1">
             <span className="w-0.5 h-full bg-primary-container animate-pulse"></span>

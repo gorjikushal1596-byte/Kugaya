@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import type { TutorInquiryResponse, MessageItem, CurriculumDocumentSummary } from '../types';
@@ -11,10 +11,12 @@ import {
   fetchConversationDetail,
 } from '../services/api';
 import { ExplanationStream } from '../components/ExplanationStream';
+import { useAudioRecorder } from '../hooks/useAudioRecorder';
 
 export const TutorScreen: React.FC = () => {
   const { user } = useUser();
   const location = useLocation();
+  const audioRecorder = useAudioRecorder();
 
   const [queryInput, setQueryInput] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -33,9 +35,11 @@ export const TutorScreen: React.FC = () => {
   const [customTitle, setCustomTitle] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('Computer Science');
 
-  // Microphone recording simulation & speech-to-text preview
+  // Real microphone recording & speech-to-text preview
   const [isRecording, setIsRecording] = useState(false);
   const [transcriptionPreview, setTranscriptionPreview] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const initialQueryExecutedRef = useRef<string | null>(null);
 
   const loadCurriculumDocs = async () => {
     try {
@@ -75,7 +79,7 @@ export const TutorScreen: React.FC = () => {
       setConversationId(res.conversation_id);
       setLatestResponse(res);
 
-      // Append assistant explanation message
+      // Append assistant explanation message (deduplicated by id)
       const asstMsg: MessageItem = {
         id: res.message_id,
         role: 'assistant',
@@ -83,7 +87,10 @@ export const TutorScreen: React.FC = () => {
         explanation: res.explanation,
         created_at: res.created_at,
       };
-      setMessages((prev) => [...prev, asstMsg]);
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === asstMsg.id)) return prev;
+        return [...prev, asstMsg];
+      });
       setTranscriptionPreview(null);
       setQueryInput('');
     } catch (err: unknown) {
@@ -102,8 +109,12 @@ export const TutorScreen: React.FC = () => {
     if (location.state) {
       const stateObj = location.state as { initialQuery?: string; continueConversationId?: string };
       if (stateObj.initialQuery) {
-        setQueryInput(stateObj.initialQuery);
-        executeExplanation(stateObj.initialQuery, null);
+        if (initialQueryExecutedRef.current !== stateObj.initialQuery) {
+          initialQueryExecutedRef.current = stateObj.initialQuery;
+          setQueryInput(stateObj.initialQuery);
+          executeExplanation(stateObj.initialQuery, null);
+          window.history.replaceState({}, document.title);
+        }
       } else if (stateObj.continueConversationId) {
         setConversationId(stateObj.continueConversationId);
         fetchConversationDetail(stateObj.continueConversationId)
@@ -113,9 +124,22 @@ export const TutorScreen: React.FC = () => {
             }
           })
           .catch(console.error);
+        window.history.replaceState({}, document.title);
       }
     }
   }, [location.state]);
+
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // Ignore
+        }
+      }
+    };
+  }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -192,25 +216,93 @@ Standard page replacement policies include: Least Recently Used (LRU), First-In 
   };
 
   const handleMicrophoneInput = async () => {
-    if (isRecording) {
+    // If currently recording, STOP recording and finalize speech
+    if (isRecording || audioRecorder.isRecording) {
       setIsRecording(false);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // Ignore
+        }
+        recognitionRef.current = null;
+      }
+      setTranscriptionPreview('Finalizing audio transcription...');
+      const blob = await audioRecorder.stopRecording();
+      if (blob && blob.size > 64) {
+        try {
+          const langCode = user.base_language.toLowerCase().slice(0, 2);
+          const stt = await transcribeAudio(blob, langCode);
+          if (stt.transcription && stt.transcription.trim()) {
+            setTranscriptionPreview(stt.transcription);
+            setQueryInput(stt.transcription);
+            return;
+          }
+        } catch (err) {
+          console.warn('Gnani Prisma STT upload note:', err);
+        }
+      }
       return;
     }
 
+    // START recording
     try {
       setIsRecording(true);
-      setTranscriptionPreview(`Listening via Gnani Prisma (${user.base_language})...`);
+      setTranscriptionPreview(`Listening (${user.base_language}). Speak now and tap mic again when done.`);
+      audioRecorder.resetRecording();
+      await audioRecorder.startRecording();
 
-      const dummyBlob = new Blob(['sample-pcm-data'], { type: 'audio/wav' });
-      const stt = await transcribeAudio(dummyBlob, user.base_language.toLowerCase().slice(0, 2));
+      // Attach native browser SpeechRecognition for live responsive transcription
+      const SpeechRecognitionClass =
+        (window as unknown as { SpeechRecognition: any }).SpeechRecognition ||
+        (window as unknown as { webkitSpeechRecognition: any }).webkitSpeechRecognition;
 
-      setTranscriptionPreview(stt.transcription);
-      setQueryInput(stt.transcription);
+      if (SpeechRecognitionClass) {
+        const recognition = new SpeechRecognitionClass();
+        recognitionRef.current = recognition;
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        const langLower = user.base_language.toLowerCase();
+        recognition.lang = langLower.includes('telugu')
+          ? 'te-IN'
+          : langLower.includes('hindi')
+          ? 'hi-IN'
+          : langLower.includes('tamil')
+          ? 'ta-IN'
+          : langLower.includes('kannada')
+          ? 'kn-IN'
+          : langLower.includes('bengali')
+          ? 'bn-IN'
+          : langLower.includes('malayalam')
+          ? 'ml-IN'
+          : 'en-IN';
+
+        recognition.onresult = (event: any) => {
+          let text = '';
+          for (let i = 0; i < event.results.length; i++) {
+            text += event.results[i][0].transcript + ' ';
+          }
+          if (text.trim()) {
+            setTranscriptionPreview(text.trim());
+            setQueryInput(text.trim());
+          }
+        };
+
+        recognition.onerror = (e: any) => {
+          console.warn('SpeechRecognition interim event:', e);
+        };
+
+        try {
+          recognition.start();
+        } catch (err) {
+          console.warn('SpeechRecognition start skipped:', err);
+        }
+      }
     } catch (err) {
       console.error(err);
-      setTranscriptionPreview('Voice transcription failed. You can type your query directly.');
-    } finally {
       setIsRecording(false);
+      setTranscriptionPreview('Could not access microphone. Please enable mic permissions in your browser.');
     }
   };
 
@@ -294,13 +386,15 @@ Standard page replacement policies include: Least Recently Used (LRU), First-In 
               type="button"
               onClick={handleMicrophoneInput}
               className={`absolute right-3 top-3 p-2 rounded-xl border transition-all ${
-                isRecording
+                isRecording || audioRecorder.isRecording
                   ? 'bg-primary-container text-on-primary-container border-primary-container animate-pulse'
                   : 'bg-surface-container-lowest text-primary border-outline-variant/30 hover:border-primary-container'
               }`}
-              title="Voice Input"
+              title={isRecording || audioRecorder.isRecording ? 'Stop Recording' : 'Voice Input'}
             >
-              <span className="material-symbols-outlined text-base">mic</span>
+              <span className="material-symbols-outlined text-base">
+                {isRecording || audioRecorder.isRecording ? 'stop' : 'mic'}
+              </span>
             </button>
           </div>
 
@@ -383,8 +477,20 @@ Standard page replacement policies include: Least Recently Used (LRU), First-In 
       {/* Conversation Thread / Message Stream */}
       {messages.length > 0 ? (
         <div className="space-y-6">
-          {messages.map((m) => {
-            if (m.role === 'assistant' && m.explanation) {
+          {messages
+            .filter((m, idx, arr) => {
+              if (m.role !== 'assistant' || !m.explanation) return false;
+              // Guard against duplicate assistant explanations for the same query within this thread
+              const firstIdx = arr.findIndex(
+                (other) =>
+                  other.role === 'assistant' &&
+                  (other.id === m.id ||
+                    (other.query.trim().toLowerCase() === m.query.trim().toLowerCase() &&
+                      other.explanation?.simple_explanation === m.explanation?.simple_explanation))
+              );
+              return firstIdx === idx;
+            })
+            .map((m) => {
               return (
                 <div key={m.id} className="space-y-4">
                   <div className="flex items-center justify-between text-xs text-on-surface-variant px-1">
@@ -393,7 +499,7 @@ Standard page replacement policies include: Least Recently Used (LRU), First-In 
                   </div>
                   <ExplanationStream
                     query={m.query}
-                    explanation={m.explanation}
+                    explanation={m.explanation!}
                     language={user.base_language}
                     provider={latestResponse?.provider || 'baseten/muse-spark-open'}
                     latencyMs={latestResponse?.latency_ms}
@@ -401,9 +507,7 @@ Standard page replacement policies include: Least Recently Used (LRU), First-In 
                   />
                 </div>
               );
-            }
-            return null;
-          })}
+            })}
         </div>
       ) : (
         !isLoading && (

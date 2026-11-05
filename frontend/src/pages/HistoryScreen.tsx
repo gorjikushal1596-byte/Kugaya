@@ -239,7 +239,7 @@ export const HistoryScreen: React.FC = () => {
 
               {/* Message List */}
               <div className="space-y-4">
-                {selectedConversation.messages.map((m) => {
+                {selectedConversation.messages.filter((m, idx, arr) => { if (m.role !== 'assistant' || !m.explanation) return false; const firstIdx = arr.findIndex((o) => o.role === 'assistant' && (o.id === m.id || (o.query.trim().toLowerCase() === m.query.trim().toLowerCase() && o.explanation?.simple_explanation === m.explanation?.simple_explanation))); return firstIdx === idx; }).map((m) => {
                   if (m.role === 'assistant' && m.explanation) {
                     return (
                       <ExplanationStream

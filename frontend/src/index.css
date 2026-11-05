@@ -57,3 +57,103 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #00daf3;
 }
+
+/* Futuristic Neural Sound Orb & Cosmic Ribbons Keyframes */
+@keyframes orbFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes orbFloatActive {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-10px) scale(1.02);
+  }
+}
+
+@keyframes plasmaUndulate {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.05);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes ribbonSwayLeft {
+  0%, 100% {
+    transform: translateX(0px) translateY(0px) scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translateX(-8px) translateY(-5px) scale(1.03);
+    opacity: 0.95;
+  }
+}
+
+@keyframes ribbonSwayRight {
+  0%, 100% {
+    transform: translateX(0px) translateY(0px) scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translateX(8px) translateY(5px) scale(1.03);
+    opacity: 0.95;
+  }
+}
+
+@keyframes barBounceA {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1.1); }
+}
+
+@keyframes barBounceB {
+  0%, 100% { transform: scaleY(0.45); }
+  50% { transform: scaleY(1.25); }
+}
+
+@keyframes barBounceC {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1.35); }
+}
+
+@keyframes barBounceD {
+  0%, 100% { transform: scaleY(0.5); }
+  50% { transform: scaleY(1.45); }
+}
+
+.animate-orb-float {
+  animation: orbFloat 4.2s ease-in-out infinite;
+}
+
+.animate-orb-float-active {
+  animation: orbFloatActive 2.4s ease-in-out infinite;
+}
+
+.animate-plasma-spin {
+  animation: plasmaUndulate 18s linear infinite;
+  transform-origin: center;
+}
+
+.animate-plasma-spin-fast {
+  animation: plasmaUndulate 7s linear infinite;
+  transform-origin: center;
+}
+
+.animate-ribbon-left {
+  animation: ribbonSwayLeft 7s ease-in-out infinite;
+}
+
+.animate-ribbon-right {
+  animation: ribbonSwayRight 7s ease-in-out infinite;
+}
+
